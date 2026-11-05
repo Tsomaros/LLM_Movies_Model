@@ -7,8 +7,8 @@
   trimmed real response `tests/fixtures/tmdb_movie_475557.json`. `TmdbClient` has only met hand-built responses so far.
   Task 8's mini fixtures also come from real responses, so the token is needed by then at the latest.
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
-- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public, empty so far). Nothing pushed yet, so
-  `.github/workflows/ci.yml` has not run. Check the first run after the first push.
+- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at fed3002; its CI run passed
+  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42027850257).
 
 ## Done
 - 2026-11-05: Design spec approved; roadmap and Phase 1 plan written; `CLAUDE.md`, the three subagents (adapted) and the
