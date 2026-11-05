@@ -214,8 +214,8 @@ def test_cpi_file_has_1960_to_2026():
 **Interfaces:**
 - Consumes: Tasks 3, 6, 7.
 - Produces: `build_db(tmdb_dir: Path, wd_films_dir: Path, wd_people_dir: Path, out: Path, pulled_at: date) -> dict` (counts). Tables: `movies` (MovieRow columns + `split`), `people(id, name, birth)`, `credits(movie_id, person_id, role, ord)` with role in `director, actor, writer, producer, composer` (TMDB jobs `Writer`/`Screenplay` → writer), `companies`, `movie_companies`, `keywords`, `movie_keywords`, `awards(person_id, family, kind, when)`, `meta(key, value)`. Builds into `out.with_suffix(".tmp")` then `os.replace`. CLI `python -m llm_movies.data.build_db --tmdb DIR --wd-films DIR --wd-people DIR --out PATH`.
-- [ ] **Step 1: Failing tests:** `test_counts_match_fixture`, `test_writer_and_screenplay_map_to_writer`, `test_duplicate_film_across_shards_kept_once`, `test_rebuild_is_identical` (same row hashes twice), `test_awards_only_whitelisted_families`.
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(data): SQLite build`.
+- [x] **Step 1: Failing tests:** `test_counts_match_fixture`, `test_writer_and_screenplay_map_to_writer`, `test_duplicate_film_across_shards_kept_once`, `test_rebuild_is_identical` (same row hashes twice), `test_awards_only_whitelisted_families`.
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(data): SQLite build`.
 
 ### Task 9: Splits and the test lock
 
