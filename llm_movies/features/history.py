@@ -99,6 +99,8 @@ class _Tracks:
         self.keys = keys[starts]
         self.offsets = np.append(starts, len(keys)).astype(np.int64)
         self.days = day
+        self.film = film.astype(np.int32)  # film position of each row, for callers that intersect tracks
+        self.film.flags.writeable = False  # handed out in slices by History.films_before
         self.revenue = _Values.pack(track_of_row, len(starts), day, films.log_revenue[film])
         self.score = _Values.pack(track_of_row, len(starts), day, films.score[film])
         self.budget = _Values.pack(track_of_row, len(starts), day, films.log_budget[film])
@@ -294,6 +296,18 @@ class History:
         if role not in ROLES:
             raise ValueError(f"unknown role {role!r}; expected one of {ROLES}")
         return self._record(self._tracks[role], self._tracks[role].find(person_id), _day(as_of))
+
+    def films_before(self, person_id: int | None, role: str, as_of: date) -> np.ndarray:
+        """Positions (in this History's film order) of the person's films in the role released strictly before `as_of`;
+        each film once, empty for an unknown person. For intersecting two people's films (Task 12 collaborations)."""
+        if role not in ROLES:
+            raise ValueError(f"unknown role {role!r}; expected one of {ROLES}")
+        tracks = self._tracks[role]
+        track = tracks.find(person_id)
+        if track is None:
+            return tracks.film[:0]
+        s, e = tracks.offsets[track], tracks.offsets[track + 1]
+        return tracks.film[s : s + int(np.searchsorted(tracks.days[s:e], _day(as_of), "left"))]
 
     def company(self, company_id: int | None, as_of: date) -> PersonRecord:
         return self._record(self._tracks["company"], self._tracks["company"].find(company_id), _day(as_of))

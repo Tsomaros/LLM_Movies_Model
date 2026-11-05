@@ -488,3 +488,25 @@ def test_nolan_as_of_tenet(tmp_path):
     assert h.resolve("christopher nolan", "director") == 525
     assert h.person(525, "actor", date(2020, 8, 22)).films == 0
     assert h.person(525, "director", date(2000, 10, 11)).is_new
+
+
+def test_films_before_is_strictly_before_once_per_film_and_read_only():
+    # Person 1 directs films 1 (2000), 2 (2005) and 3 (2005, same day as 2), and film 1 twice (a repeated credit row).
+    rows = [(1, 1, "director"), (1, 1, "director"), (2, 1, "director"), (3, 1, "director"), (3, 2, "actor")]
+    h = History.from_db(make_db([film(1, "2000-01-01"), film(2, "2005-01-01"), film(3, "2005-01-01")], rows, unique_credits=False), CFG)
+    assert len(h.films_before(1, "director", d("2000-01-01"))) == 0  # film 1's own day
+    assert len(h.films_before(1, "director", d("2000-01-02"))) == 1  # film 1, once despite two credit rows
+    assert len(h.films_before(1, "director", d("2005-01-01"))) == 1  # same-day films 2 and 3 are not earlier
+    assert len(h.films_before(1, "director", d("2005-01-02"))) == 3
+    assert len(h.films_before(1, "actor", d("2010-01-01"))) == 0  # roles are separate
+    assert len(h.films_before(2, "actor", d("2010-01-01"))) == 1
+    assert len(set(h.films_before(1, "director", d("2010-01-01")).tolist())) == 3  # three different films
+    for unknown in (999, None):
+        assert len(h.films_before(unknown, "director", d("2010-01-01"))) == 0
+    with pytest.raises(ValueError):
+        h.films_before(1, "gaffer", d("2010-01-01"))
+    for result in (h.films_before(1, "director", d("2010-01-01")), h.films_before(999, "director", d("2010-01-01"))):
+        with pytest.raises(ValueError):  # numpy: assignment destination is read-only
+            result[:] = 0
+    first = h.films_before(1, "director", d("2010-01-01")).tolist()
+    assert h.films_before(1, "director", d("2010-01-01")).tolist() == first  # nothing changed by the failed writes

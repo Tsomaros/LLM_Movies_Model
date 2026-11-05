@@ -115,6 +115,7 @@ class MovieRow:
     source_material: str
     distributor: str | None
     wd_qid: str | None
+    source_sitelinks: int | None  # Wikipedias covering the source work (today's count); None without Wikidata or a source
 
 
 def _dicts(value) -> list[dict]:
@@ -269,4 +270,5 @@ def clean_movie(raw: dict, wd: FilmFacts | None, cpi: dict, fx: dict, pulled_at:
         source_material=source_category(wd.source_types if wd else set(), set(keywords)),
         distributor=pick_distributor(wd.distributors if wd else [], kind, released.year),
         wd_qid=wd.qid if wd else None,
+        source_sitelinks=wd.source_sitelinks if wd else None,
     )

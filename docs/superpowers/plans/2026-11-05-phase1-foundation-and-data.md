@@ -259,8 +259,8 @@ def test_cpi_file_has_1960_to_2026():
   - `age_at(ctx, person_id, as_of) -> int | None`.
   - `prior_awards(ctx, person_ids, as_of) -> dict[str, int]` → `{"wins": n, "nominations": m}` counting only events with `when < as_of` (undated events are not counted).
   - `source_strength(ctx, sitelinks: int | None) -> int | None` (passes the sitelink count through; None for original).
-- [ ] **Step 1: Failing tests:** `test_competition_counts_both_sides_and_excludes_self`, `test_first_entry_is_installment_1`, `test_collaborations_only_before`, `test_award_on_release_day_not_counted`, `test_undated_award_not_counted`, `test_age_none_without_birth`.
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(features): computed inputs`.
+- [x] **Step 1: Failing tests:** `test_competition_counts_both_sides_and_excludes_self`, `test_first_entry_is_installment_1`, `test_collaborations_only_before`, `test_award_on_release_day_not_counted`, `test_undated_award_not_counted`, `test_age_none_without_birth`.
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(features): computed inputs`.
 
 ### Task 13: Resolve and render prompts
 

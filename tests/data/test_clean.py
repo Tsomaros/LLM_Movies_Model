@@ -405,6 +405,12 @@ def test_wikidata_qid_and_source_material():
     assert (row.wd_qid, row.source_material) == ("Q42", "comic")
 
 
+def test_source_sitelinks_come_from_wikidata_facts():
+    assert clean(wd=facts(source_sitelinks=12)).source_sitelinks == 12
+    assert clean(wd=facts(source_sitelinks=None)).source_sitelinks is None
+    assert clean(wd=None).source_sitelinks is None
+
+
 # ---- release type ----
 
 WIDE_LIMITED = [rd(2, "2000-06-01"), rd(3, "2000-06-10")]

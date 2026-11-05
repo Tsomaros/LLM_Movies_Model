@@ -1,10 +1,10 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-11 done. Next: Task 12 (the six computed inputs).
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-12 done. Next: Task 13 (resolve and render prompts).
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
-- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 453c442; its CI run passed
-  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42044257829).
+- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at a6d0daa; its CI run passed
+  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42046992938).
 
 ## Done
 - 2026-11-05: Design spec approved; roadmap and Phase 1 plan written; `CLAUDE.md`, the three subagents (adapted) and the
@@ -29,8 +29,15 @@
 - 2026-11-05: Task 10 (form contract). 550 tests pass, ruff clean, code-reviewer and test-auditor run on Windows.
 - 2026-11-05: Task 11 (leak-safe track records). 576 tests pass, ruff clean, code-reviewer and test-auditor run on Windows; the
   audit ran 56 leak mutants against the tests.
+- 2026-11-05: Task 12 (the six computed inputs, `source_sitelinks` column). 609 tests pass, ruff clean, code-reviewer and test-auditor
+  run on Windows.
 
 ## Open questions
+- Possible outcome leaks to check before training (Phase 1 data report or Phase 2): `source_sitelinks` is today's count, so a hit film
+  can raise its source's page count (try training with and without it); `release_type` comes from TMDB entries added after release,
+  so "streaming-only" may mark films that flopped; `distributor` may list later rights holders; themes and keywords may hold outcome
+  words such as "cult". `money_suspect` comes from revenue, so History's budget filter has a small leak for films under 182 days old.
+- `source_sitelinks` at serving: the form has no such field, so decide in Task 13 where a user form's value comes from.
 - `min_votes` for the score target: decided from the Phase 1 data report.
 - Base model and its training cutoff: decided in Phase 2.
 
@@ -88,6 +95,13 @@
   votes, budget only when not suspect. `n` in the shrinkage formula is the count of usable values, so it can differ from `films`.
   An earlier film's score is its current TMDB rating, not its rating then (same limit as the app). On 200k films: `from_db` 2 s,
   225 MB peak, `person` 47 us; not yet measured at 1.2M, where export calling it 25 times per film is about 25 minutes.
+- Computed inputs: `competition` looks forward by design and counts every budget above 100M, suspect or not. `collaborations` skips
+  the director among the actors. A database built before Task 12 lacks `source_sitelinks`, so rebuild first. On 200k films
+  `Context.from_db` took 13.6 s and 502 MB; estimated about 3 GB at 1.2M, so for serving plan a packed snapshot, not `from_db` on each
+  cold start.
+- For Task 13, a hard-rule leak: a first film has a collection only because sequels came later, so installment 1 tells the model a
+  sequel got made. Drop the franchise when `installment == 1`, in one place used by training and serving alike. A user's known
+  franchise with no earlier film then reads as standalone.
 - For Task 13: track-record values can be NaN on any record, new or not, when no earlier film has a usable value yet. Print
   "not given" and keep the JSON round trip valid. Also, never run `validate` on training forms. `film_to_form` emits the clean shape directly with TMDB ids and `resolve`
   accepts it. Films with under 5 actors or no themes must still resolve, a `None` release type from `clean.py` needs handling, and
