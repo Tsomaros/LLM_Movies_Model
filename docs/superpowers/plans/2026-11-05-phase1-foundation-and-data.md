@@ -149,16 +149,16 @@ def test_cpi_file_has_1960_to_2026():
   - `pull_chunk(client, chunk: int, ids: list[int], out_dir: Path, manifest: Manifest) -> dict` writing `out_dir/tmdb_{chunk:04d}.jsonl` (full record + `pulled_at`) and `out_dir/missing_{chunk:04d}.txt`; skips ids already in the shard or missing file; marks the chunk done with `{"pulled": n, "missing": m}`.
   - CLI `python -m llm_movies.data.tmdb_pull --ids PATH --chunk N --out DIR [--limit K]`.
 
-- [ ] **Step 1: Write failing tests** with a fake session (records calls, returns scripted responses):
+- [x] **Step 1: Write failing tests** with a fake session (records calls, returns scripted responses):
   - `test_read_ids_skips_adult_and_video`
   - `test_retries_429_then_succeeds` (429 with `Retry-After: 0`, then 200 → dict, 2 calls)
   - `test_404_is_recorded_missing` (id in `missing_0000.txt`, not refetched on rerun)
   - `test_pull_chunk_resumes_without_duplicates` (first run raises after 2 ids; rerun → shard has each id once)
   - `test_truncated_last_line_is_refetched`
   - `test_done_chunk_is_skipped` (manifest done → 0 HTTP calls)
-- [ ] **Step 2–4:** FAIL → implement → PASS.
+- [x] **Step 2–4:** FAIL → implement → PASS.
 - [ ] **Step 5:** Manual check (needs `TMDB_READ_TOKEN`): `uv run python -m llm_movies.data.tmdb_pull --ids <export> --chunk 0 --out raw/tmdb --limit 50` → 50 lines (minus missing), manifest updated.
-- [ ] **Step 6:** Commit `feat(data): resumable TMDB pull`.
+- [x] **Step 6:** Commit `feat(data): resumable TMDB pull`.
 
 ### Task 5: Source material and award families
 
