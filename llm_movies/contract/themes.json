@@ -1,0 +1,1648 @@
+{
+  "about": "The 300 most common TMDB keywords in train films (<=2015), embedded with MiniLM (revision 1110a243), clustered with KMeans (k=30, seed 0), then cleaned and named by hand. Approved by Dimitris on 2026-10-21. A film has a theme when any of its keywords is listed under it. Revised 2026-10-21 after the features notebook: 'amused', 'absurd' and 'campy' moved from 'comedy and satire' to dropped, because many of their films are not comedies.",
+  "themes": [
+    {
+      "name": "based on a book",
+      "keywords": [
+        {
+          "id": 818,
+          "name": "based on novel or book",
+          "train_films": 2877
+        },
+        {
+          "id": 10181,
+          "name": "based on play or musical",
+          "train_films": 457
+        },
+        {
+          "id": 9717,
+          "name": "based on comic",
+          "train_films": 369
+        },
+        {
+          "id": 13141,
+          "name": "based on manga",
+          "train_films": 296
+        },
+        {
+          "id": 156866,
+          "name": "based on short story",
+          "train_films": 188
+        },
+        {
+          "id": 269769,
+          "name": "based on tv series",
+          "train_films": 173
+        },
+        {
+          "id": 15101,
+          "name": "based on children's book",
+          "train_films": 164
+        },
+        {
+          "id": 3205,
+          "name": "fairy tale",
+          "train_films": 210
+        }
+      ]
+    },
+    {
+      "name": "true story",
+      "keywords": [
+        {
+          "id": 9672,
+          "name": "based on true story",
+          "train_films": 868
+        },
+        {
+          "id": 5565,
+          "name": "biography",
+          "train_films": 787
+        }
+      ]
+    },
+    {
+      "name": "sequel or remake",
+      "keywords": [
+        {
+          "id": 9663,
+          "name": "sequel",
+          "train_films": 1286
+        },
+        {
+          "id": 9714,
+          "name": "remake",
+          "train_films": 440
+        }
+      ]
+    },
+    {
+      "name": "crime and police",
+      "keywords": [
+        {
+          "id": 6149,
+          "name": "police",
+          "train_films": 632
+        },
+        {
+          "id": 3149,
+          "name": "gangster",
+          "train_films": 411
+        },
+        {
+          "id": 10391,
+          "name": "mafia",
+          "train_films": 250
+        },
+        {
+          "id": 10726,
+          "name": "gang",
+          "train_films": 207
+        },
+        {
+          "id": 1812,
+          "name": "fbi",
+          "train_films": 189
+        },
+        {
+          "id": 15009,
+          "name": "criminal",
+          "train_films": 165
+        },
+        {
+          "id": 10291,
+          "name": "organized crime",
+          "train_films": 143
+        },
+        {
+          "id": 8015,
+          "name": "cop",
+          "train_films": 131
+        },
+        {
+          "id": 2231,
+          "name": "drug dealer",
+          "train_films": 134
+        },
+        {
+          "id": 378,
+          "name": "prison",
+          "train_films": 440
+        },
+        {
+          "id": 703,
+          "name": "detective",
+          "train_films": 439
+        },
+        {
+          "id": 5340,
+          "name": "investigation",
+          "train_films": 307
+        },
+        {
+          "id": 12570,
+          "name": "whodunit",
+          "train_films": 165
+        },
+        {
+          "id": 1794,
+          "name": "yakuza",
+          "train_films": 205
+        },
+        {
+          "id": 417,
+          "name": "corruption",
+          "train_films": 253
+        },
+        {
+          "id": 798,
+          "name": "sheriff",
+          "train_films": 156
+        },
+        {
+          "id": 10909,
+          "name": "lawyer",
+          "train_films": 217
+        }
+      ]
+    },
+    {
+      "name": "heist",
+      "keywords": [
+        {
+          "id": 10051,
+          "name": "heist",
+          "train_films": 189
+        },
+        {
+          "id": 642,
+          "name": "robbery",
+          "train_films": 316
+        },
+        {
+          "id": 15363,
+          "name": "bank robbery",
+          "train_films": 150
+        },
+        {
+          "id": 9727,
+          "name": "thief",
+          "train_films": 164
+        },
+        {
+          "id": 395,
+          "name": "gambling",
+          "train_films": 149
+        }
+      ]
+    },
+    {
+      "name": "murder and revenge",
+      "keywords": [
+        {
+          "id": 9826,
+          "name": "murder",
+          "train_films": 2168
+        },
+        {
+          "id": 9748,
+          "name": "revenge",
+          "train_films": 1192
+        },
+        {
+          "id": 10714,
+          "name": "serial killer",
+          "train_films": 658
+        },
+        {
+          "id": 15127,
+          "name": "killer",
+          "train_films": 194
+        },
+        {
+          "id": 6259,
+          "name": "psychopath",
+          "train_films": 278
+        },
+        {
+          "id": 1930,
+          "name": "kidnapping",
+          "train_films": 568
+        },
+        {
+          "id": 1562,
+          "name": "hostage",
+          "train_films": 191
+        },
+        {
+          "id": 13006,
+          "name": "torture",
+          "train_films": 314
+        },
+        {
+          "id": 4426,
+          "name": "sadism",
+          "train_films": 155
+        },
+        {
+          "id": 1936,
+          "name": "blackmail",
+          "train_films": 214
+        },
+        {
+          "id": 2708,
+          "name": "hitman",
+          "train_films": 226
+        },
+        {
+          "id": 7002,
+          "name": "vigilante",
+          "train_films": 133
+        },
+        {
+          "id": 12565,
+          "name": "psychological thriller",
+          "train_films": 138
+        },
+        {
+          "id": 1523,
+          "name": "obsession",
+          "train_films": 196
+        }
+      ]
+    },
+    {
+      "name": "spy and conspiracy",
+      "keywords": [
+        {
+          "id": 470,
+          "name": "spy",
+          "train_films": 313
+        },
+        {
+          "id": 4289,
+          "name": "secret agent",
+          "train_films": 145
+        },
+        {
+          "id": 591,
+          "name": "central intelligence agency (cia)",
+          "train_films": 148
+        },
+        {
+          "id": 13015,
+          "name": "terrorism",
+          "train_films": 285
+        },
+        {
+          "id": 10410,
+          "name": "conspiracy",
+          "train_films": 194
+        },
+        {
+          "id": 2340,
+          "name": "paranoia",
+          "train_films": 139
+        },
+        {
+          "id": 782,
+          "name": "assassin",
+          "train_films": 199
+        }
+      ]
+    },
+    {
+      "name": "action and martial arts",
+      "keywords": [
+        {
+          "id": 779,
+          "name": "martial arts",
+          "train_films": 995
+        },
+        {
+          "id": 780,
+          "name": "kung fu",
+          "train_films": 311
+        },
+        {
+          "id": 1721,
+          "name": "fight",
+          "train_films": 238
+        },
+        {
+          "id": 10950,
+          "name": "shootout",
+          "train_films": 205
+        },
+        {
+          "id": 3713,
+          "name": "chase",
+          "train_films": 169
+        },
+        {
+          "id": 14601,
+          "name": "explosion",
+          "train_films": 159
+        },
+        {
+          "id": 1419,
+          "name": "gun",
+          "train_films": 155
+        },
+        {
+          "id": 9725,
+          "name": "sword fight",
+          "train_films": 174
+        },
+        {
+          "id": 219404,
+          "name": "action hero",
+          "train_films": 190
+        },
+        {
+          "id": 1462,
+          "name": "samurai",
+          "train_films": 171
+        },
+        {
+          "id": 186753,
+          "name": "jidaigeki",
+          "train_films": 158
+        },
+        {
+          "id": 10278,
+          "name": "ninja",
+          "train_films": 132
+        },
+        {
+          "id": 9844,
+          "name": "car crash",
+          "train_films": 127
+        },
+        {
+          "id": 12988,
+          "name": "pirate",
+          "train_films": 134
+        }
+      ]
+    },
+    {
+      "name": "history and war",
+      "keywords": [
+        {
+          "id": 1956,
+          "name": "world war ii",
+          "train_films": 713
+        },
+        {
+          "id": 2652,
+          "name": "nazi",
+          "train_films": 253
+        },
+        {
+          "id": 13065,
+          "name": "soldier",
+          "train_films": 223
+        },
+        {
+          "id": 162365,
+          "name": "military",
+          "train_films": 133
+        },
+        {
+          "id": 6092,
+          "name": "army",
+          "train_films": 131
+        },
+        {
+          "id": 207928,
+          "name": "19th century",
+          "train_films": 391
+        },
+        {
+          "id": 214548,
+          "name": "1930s",
+          "train_films": 212
+        },
+        {
+          "id": 207883,
+          "name": "1940s",
+          "train_films": 290
+        },
+        {
+          "id": 208611,
+          "name": "1950s",
+          "train_films": 223
+        },
+        {
+          "id": 208992,
+          "name": "1960s",
+          "train_films": 372
+        },
+        {
+          "id": 1228,
+          "name": "1970s",
+          "train_films": 346
+        },
+        {
+          "id": 208289,
+          "name": "1980s",
+          "train_films": 251
+        },
+        {
+          "id": 15060,
+          "name": "period drama",
+          "train_films": 140
+        },
+        {
+          "id": 156212,
+          "name": "spaghetti western",
+          "train_films": 269
+        },
+        {
+          "id": 10322,
+          "name": "native american",
+          "train_films": 177
+        },
+        {
+          "id": 3098,
+          "name": "castle",
+          "train_films": 169
+        }
+      ]
+    },
+    {
+      "name": "supernatural",
+      "keywords": [
+        {
+          "id": 162846,
+          "name": "ghost",
+          "train_films": 366
+        },
+        {
+          "id": 3358,
+          "name": "haunted house",
+          "train_films": 161
+        },
+        {
+          "id": 15001,
+          "name": "demon",
+          "train_films": 232
+        },
+        {
+          "id": 9712,
+          "name": "possession",
+          "train_films": 141
+        },
+        {
+          "id": 156174,
+          "name": "occult",
+          "train_films": 140
+        },
+        {
+          "id": 6152,
+          "name": "supernatural",
+          "train_films": 305
+        },
+        {
+          "id": 10541,
+          "name": "curse",
+          "train_films": 156
+        },
+        {
+          "id": 616,
+          "name": "witch",
+          "train_films": 251
+        },
+        {
+          "id": 6158,
+          "name": "cult",
+          "train_films": 132
+        },
+        {
+          "id": 3335,
+          "name": "halloween",
+          "train_films": 380
+        },
+        {
+          "id": 3030,
+          "name": "nightmare",
+          "train_films": 171
+        },
+        {
+          "id": 10093,
+          "name": "priest",
+          "train_films": 180
+        }
+      ]
+    },
+    {
+      "name": "monsters and gore",
+      "keywords": [
+        {
+          "id": 3133,
+          "name": "vampire",
+          "train_films": 441
+        },
+        {
+          "id": 12377,
+          "name": "zombie",
+          "train_films": 351
+        },
+        {
+          "id": 12564,
+          "name": "werewolf",
+          "train_films": 146
+        },
+        {
+          "id": 1299,
+          "name": "monster",
+          "train_films": 412
+        },
+        {
+          "id": 13031,
+          "name": "creature",
+          "train_films": 159
+        },
+        {
+          "id": 1852,
+          "name": "mutant",
+          "train_films": 131
+        },
+        {
+          "id": 12616,
+          "name": "dinosaur",
+          "train_films": 133
+        },
+        {
+          "id": 12339,
+          "name": "slasher",
+          "train_films": 460
+        },
+        {
+          "id": 10292,
+          "name": "gore",
+          "train_films": 353
+        },
+        {
+          "id": 14895,
+          "name": "cannibal",
+          "train_films": 156
+        }
+      ]
+    },
+    {
+      "name": "science fiction",
+      "keywords": [
+        {
+          "id": 9951,
+          "name": "alien",
+          "train_films": 476
+        },
+        {
+          "id": 9882,
+          "name": "space",
+          "train_films": 176
+        },
+        {
+          "id": 14544,
+          "name": "robot",
+          "train_films": 173
+        },
+        {
+          "id": 4379,
+          "name": "time travel",
+          "train_films": 312
+        },
+        {
+          "id": 4565,
+          "name": "dystopia",
+          "train_films": 321
+        },
+        {
+          "id": 4458,
+          "name": "post-apocalyptic future",
+          "train_films": 226
+        },
+        {
+          "id": 2964,
+          "name": "future",
+          "train_films": 186
+        },
+        {
+          "id": 1706,
+          "name": "experiment",
+          "train_films": 206
+        },
+        {
+          "id": 10125,
+          "name": "mad scientist",
+          "train_films": 136
+        },
+        {
+          "id": 14760,
+          "name": "scientist",
+          "train_films": 236
+        }
+      ]
+    },
+    {
+      "name": "superhero",
+      "keywords": [
+        {
+          "id": 9715,
+          "name": "superhero",
+          "train_films": 318
+        },
+        {
+          "id": 33637,
+          "name": "super power",
+          "train_films": 213
+        },
+        {
+          "id": 3289,
+          "name": "villain",
+          "train_films": 197
+        }
+      ]
+    },
+    {
+      "name": "fantasy and magic",
+      "keywords": [
+        {
+          "id": 2343,
+          "name": "magic",
+          "train_films": 318
+        },
+        {
+          "id": 7376,
+          "name": "princess",
+          "train_films": 134
+        },
+        {
+          "id": 4375,
+          "name": "transformation",
+          "train_films": 130
+        },
+        {
+          "id": 1566,
+          "name": "dreams",
+          "train_films": 195
+        }
+      ]
+    },
+    {
+      "name": "survival and adventure",
+      "keywords": [
+        {
+          "id": 10349,
+          "name": "survival",
+          "train_films": 202
+        },
+        {
+          "id": 10617,
+          "name": "disaster",
+          "train_films": 133
+        },
+        {
+          "id": 10685,
+          "name": "escape",
+          "train_films": 243
+        },
+        {
+          "id": 10084,
+          "name": "rescue",
+          "train_films": 138
+        },
+        {
+          "id": 10787,
+          "name": "jungle",
+          "train_films": 166
+        },
+        {
+          "id": 18034,
+          "name": "desert",
+          "train_films": 212
+        },
+        {
+          "id": 5774,
+          "name": "forest",
+          "train_films": 182
+        },
+        {
+          "id": 2041,
+          "name": "island",
+          "train_films": 306
+        },
+        {
+          "id": 3800,
+          "name": "airplane",
+          "train_films": 163
+        },
+        {
+          "id": 7312,
+          "name": "road trip",
+          "train_films": 250
+        },
+        {
+          "id": 167043,
+          "name": "road movie",
+          "train_films": 164
+        }
+      ]
+    },
+    {
+      "name": "love and marriage",
+      "keywords": [
+        {
+          "id": 9673,
+          "name": "love",
+          "train_films": 693
+        },
+        {
+          "id": 9840,
+          "name": "romance",
+          "train_films": 394
+        },
+        {
+          "id": 128,
+          "name": "love triangle",
+          "train_films": 306
+        },
+        {
+          "id": 13072,
+          "name": "falling in love",
+          "train_films": 151
+        },
+        {
+          "id": 324429,
+          "name": "romantic",
+          "train_films": 131
+        },
+        {
+          "id": 14720,
+          "name": "love affair",
+          "train_films": 130
+        },
+        {
+          "id": 9799,
+          "name": "romcom",
+          "train_films": 221
+        },
+        {
+          "id": 14534,
+          "name": "relationship",
+          "train_films": 184
+        },
+        {
+          "id": 931,
+          "name": "jealousy",
+          "train_films": 274
+        },
+        {
+          "id": 1326,
+          "name": "infidelity",
+          "train_films": 387
+        },
+        {
+          "id": 596,
+          "name": "adultery",
+          "train_films": 281
+        },
+        {
+          "id": 34094,
+          "name": "extramarital affair",
+          "train_films": 251
+        },
+        {
+          "id": 10085,
+          "name": "betrayal",
+          "train_films": 191
+        },
+        {
+          "id": 1157,
+          "name": "husband wife relationship",
+          "train_films": 349
+        },
+        {
+          "id": 13027,
+          "name": "wedding",
+          "train_films": 282
+        },
+        {
+          "id": 6038,
+          "name": "marriage",
+          "train_films": 279
+        },
+        {
+          "id": 15160,
+          "name": "divorce",
+          "train_films": 167
+        }
+      ]
+    },
+    {
+      "name": "family",
+      "keywords": [
+        {
+          "id": 970,
+          "name": "parent child relationship",
+          "train_films": 513
+        },
+        {
+          "id": 18035,
+          "name": "family",
+          "train_films": 453
+        },
+        {
+          "id": 10235,
+          "name": "family relationships",
+          "train_films": 280
+        },
+        {
+          "id": 380,
+          "name": "sibling relationship",
+          "train_films": 446
+        },
+        {
+          "id": 240119,
+          "name": "father son relationship",
+          "train_films": 221
+        },
+        {
+          "id": 240315,
+          "name": "mother daughter relationship",
+          "train_films": 136
+        },
+        {
+          "id": 240237,
+          "name": "mother son relationship",
+          "train_films": 134
+        },
+        {
+          "id": 240303,
+          "name": "father daughter relationship",
+          "train_films": 127
+        },
+        {
+          "id": 5600,
+          "name": "daughter",
+          "train_films": 181
+        },
+        {
+          "id": 10041,
+          "name": "dysfunctional family",
+          "train_films": 178
+        },
+        {
+          "id": 13014,
+          "name": "orphan",
+          "train_films": 175
+        },
+        {
+          "id": 3725,
+          "name": "pregnancy",
+          "train_films": 238
+        },
+        {
+          "id": 33841,
+          "name": "incest",
+          "train_films": 236
+        },
+        {
+          "id": 15162,
+          "name": "dog",
+          "train_films": 352
+        },
+        {
+          "id": 977,
+          "name": "cat",
+          "train_films": 141
+        },
+        {
+          "id": 2673,
+          "name": "horse",
+          "train_films": 156
+        }
+      ]
+    },
+    {
+      "name": "friendship",
+      "keywords": [
+        {
+          "id": 6054,
+          "name": "friendship",
+          "train_films": 616
+        },
+        {
+          "id": 9713,
+          "name": "friends",
+          "train_films": 228
+        },
+        {
+          "id": 12392,
+          "name": "best friend",
+          "train_films": 169
+        },
+        {
+          "id": 3230,
+          "name": "male friendship",
+          "train_films": 166
+        },
+        {
+          "id": 5248,
+          "name": "female friendship",
+          "train_films": 142
+        },
+        {
+          "id": 10226,
+          "name": "neighbor",
+          "train_films": 145
+        }
+      ]
+    },
+    {
+      "name": "coming of age and school",
+      "keywords": [
+        {
+          "id": 10683,
+          "name": "coming of age",
+          "train_films": 526
+        },
+        {
+          "id": 6270,
+          "name": "high school",
+          "train_films": 524
+        },
+        {
+          "id": 10873,
+          "name": "school",
+          "train_films": 217
+        },
+        {
+          "id": 3616,
+          "name": "college",
+          "train_films": 203
+        },
+        {
+          "id": 296608,
+          "name": "teenager",
+          "train_films": 130
+        },
+        {
+          "id": 10809,
+          "name": "teenage girl",
+          "train_films": 203
+        },
+        {
+          "id": 6733,
+          "name": "bullying",
+          "train_films": 134
+        },
+        {
+          "id": 10508,
+          "name": "teacher",
+          "train_films": 292
+        },
+        {
+          "id": 13088,
+          "name": "summer",
+          "train_films": 155
+        },
+        {
+          "id": 6876,
+          "name": "vacation",
+          "train_films": 138
+        }
+      ]
+    },
+    {
+      "name": "LGBTQ+",
+      "keywords": [
+        {
+          "id": 258533,
+          "name": "gay theme",
+          "train_films": 930
+        },
+        {
+          "id": 158718,
+          "name": "lgbt",
+          "train_films": 824
+        },
+        {
+          "id": 10180,
+          "name": "male homosexuality",
+          "train_films": 211
+        },
+        {
+          "id": 264386,
+          "name": "lesbian",
+          "train_films": 144
+        },
+        {
+          "id": 9833,
+          "name": "lesbian relationship",
+          "train_films": 126
+        },
+        {
+          "id": 738,
+          "name": "sexuality",
+          "train_films": 134
+        }
+      ]
+    },
+    {
+      "name": "sex and erotica",
+      "keywords": [
+        {
+          "id": 190370,
+          "name": "erotic movie",
+          "train_films": 536
+        },
+        {
+          "id": 155477,
+          "name": "softcore",
+          "train_films": 449
+        },
+        {
+          "id": 1664,
+          "name": "eroticism",
+          "train_films": 253
+        },
+        {
+          "id": 10053,
+          "name": "sexploitation",
+          "train_films": 169
+        },
+        {
+          "id": 159551,
+          "name": "pink film",
+          "train_films": 220
+        },
+        {
+          "id": 178649,
+          "name": "voyeurism",
+          "train_films": 167
+        },
+        {
+          "id": 3182,
+          "name": "seduction",
+          "train_films": 208
+        },
+        {
+          "id": 549,
+          "name": "prostitute",
+          "train_films": 418
+        },
+        {
+          "id": 13059,
+          "name": "prostitution",
+          "train_films": 296
+        },
+        {
+          "id": 1411,
+          "name": "brothel",
+          "train_films": 129
+        },
+        {
+          "id": 6593,
+          "name": "stripper",
+          "train_films": 132
+        },
+        {
+          "id": 2334,
+          "name": "nightclub",
+          "train_films": 141
+        },
+        {
+          "id": 570,
+          "name": "rape",
+          "train_films": 628
+        },
+        {
+          "id": 2804,
+          "name": "exploitation",
+          "train_films": 276
+        }
+      ]
+    },
+    {
+      "name": "grief, addiction and mental health",
+      "keywords": [
+        {
+          "id": 236,
+          "name": "suicide",
+          "train_films": 408
+        },
+        {
+          "id": 697,
+          "name": "loss of loved one",
+          "train_films": 363
+        },
+        {
+          "id": 34079,
+          "name": "death",
+          "train_films": 351
+        },
+        {
+          "id": 3737,
+          "name": "dying and death",
+          "train_films": 148
+        },
+        {
+          "id": 10614,
+          "name": "tragedy",
+          "train_films": 126
+        },
+        {
+          "id": 4129,
+          "name": "widow",
+          "train_films": 147
+        },
+        {
+          "id": 41329,
+          "name": "mental illness",
+          "train_films": 138
+        },
+        {
+          "id": 894,
+          "name": "depression",
+          "train_films": 133
+        },
+        {
+          "id": 9957,
+          "name": "loneliness",
+          "train_films": 132
+        },
+        {
+          "id": 15106,
+          "name": "psychiatrist",
+          "train_films": 132
+        },
+        {
+          "id": 1453,
+          "name": "amnesia",
+          "train_films": 140
+        },
+        {
+          "id": 14964,
+          "name": "drugs",
+          "train_films": 531
+        },
+        {
+          "id": 1803,
+          "name": "drug addiction",
+          "train_films": 148
+        },
+        {
+          "id": 10776,
+          "name": "marijuana",
+          "train_films": 140
+        },
+        {
+          "id": 7464,
+          "name": "alcoholism",
+          "train_films": 138
+        },
+        {
+          "id": 516,
+          "name": "child abuse",
+          "train_films": 127
+        },
+        {
+          "id": 11612,
+          "name": "hospital",
+          "train_films": 281
+        },
+        {
+          "id": 13005,
+          "name": "doctor",
+          "train_films": 268
+        },
+        {
+          "id": 428,
+          "name": "nurse",
+          "train_films": 134
+        }
+      ]
+    },
+    {
+      "name": "comedy and satire",
+      "keywords": [
+        {
+          "id": 8201,
+          "name": "satire",
+          "train_films": 341
+        },
+        {
+          "id": 9755,
+          "name": "parody",
+          "train_films": 278
+        },
+        {
+          "id": 11931,
+          "name": "spoof",
+          "train_films": 182
+        },
+        {
+          "id": 10123,
+          "name": "dark comedy",
+          "train_films": 394
+        },
+        {
+          "id": 170827,
+          "name": "sex comedy",
+          "train_films": 351
+        },
+        {
+          "id": 9253,
+          "name": "slapstick comedy",
+          "train_films": 143
+        },
+        {
+          "id": 320420,
+          "name": "hilarious",
+          "train_films": 175
+        }
+      ]
+    },
+    {
+      "name": "music",
+      "keywords": [
+        {
+          "id": 4344,
+          "name": "musical",
+          "train_films": 845
+        },
+        {
+          "id": 6029,
+          "name": "concert",
+          "train_films": 201
+        },
+        {
+          "id": 578,
+          "name": "rock 'n' roll",
+          "train_films": 193
+        },
+        {
+          "id": 10229,
+          "name": "singer",
+          "train_films": 164
+        },
+        {
+          "id": 2679,
+          "name": "artist",
+          "train_films": 127
+        }
+      ]
+    },
+    {
+      "name": "sports",
+      "keywords": [
+        {
+          "id": 6075,
+          "name": "sports",
+          "train_films": 603
+        },
+        {
+          "id": 13042,
+          "name": "football (soccer)",
+          "train_films": 168
+        }
+      ]
+    },
+    {
+      "name": "christmas and holidays",
+      "keywords": [
+        {
+          "id": 207317,
+          "name": "christmas",
+          "train_films": 616
+        },
+        {
+          "id": 65,
+          "name": "holiday",
+          "train_films": 388
+        }
+      ]
+    },
+    {
+      "name": "politics and religion",
+      "keywords": [
+        {
+          "id": 6078,
+          "name": "politics",
+          "train_films": 273
+        },
+        {
+          "id": 11001,
+          "name": "religion",
+          "train_films": 221
+        },
+        {
+          "id": 12425,
+          "name": "racism",
+          "train_films": 206
+        },
+        {
+          "id": 736,
+          "name": "journalist",
+          "train_films": 185
+        },
+        {
+          "id": 10594,
+          "name": "money",
+          "train_films": 215
+        }
+      ]
+    }
+  ],
+  "dropped": {
+    "film format or production": [
+      {
+        "id": 187056,
+        "name": "woman director",
+        "train_films": 3073
+      },
+      {
+        "id": 263548,
+        "name": "short film",
+        "train_films": 1621
+      },
+      {
+        "id": 278823,
+        "name": "3d animation",
+        "train_films": 387
+      },
+      {
+        "id": 207268,
+        "name": "neo-noir",
+        "train_films": 297
+      },
+      {
+        "id": 163053,
+        "name": "found footage",
+        "train_films": 282
+      },
+      {
+        "id": 281237,
+        "name": "independent film",
+        "train_films": 178
+      },
+      {
+        "id": 12999,
+        "name": "black and white",
+        "train_films": 343
+      },
+      {
+        "id": 15216,
+        "name": "avant-garde",
+        "train_films": 137
+      },
+      {
+        "id": 210024,
+        "name": "anime",
+        "train_films": 801
+      },
+      {
+        "id": 6513,
+        "name": "cartoon",
+        "train_films": 202
+      },
+      {
+        "id": 161919,
+        "name": "adult animation",
+        "train_films": 192
+      },
+      {
+        "id": 10121,
+        "name": "stop motion",
+        "train_films": 186
+      },
+      {
+        "id": 9706,
+        "name": "anthology",
+        "train_films": 229
+      },
+      {
+        "id": 886,
+        "name": "movie business",
+        "train_films": 158
+      },
+      {
+        "id": 33490,
+        "name": "filmmaking",
+        "train_films": 153
+      },
+      {
+        "id": 12396,
+        "name": "hollywood",
+        "train_films": 170
+      },
+      {
+        "id": 179431,
+        "name": "duringcreditsstinger",
+        "train_films": 473
+      },
+      {
+        "id": 179430,
+        "name": "aftercreditsstinger",
+        "train_films": 308
+      }
+    ],
+    "place": [
+      {
+        "id": 242,
+        "name": "new york city",
+        "train_films": 816
+      },
+      {
+        "id": 12670,
+        "name": "los angeles, california",
+        "train_films": 460
+      },
+      {
+        "id": 387,
+        "name": "california",
+        "train_films": 195
+      },
+      {
+        "id": 212,
+        "name": "london, england",
+        "train_films": 437
+      },
+      {
+        "id": 392,
+        "name": "england",
+        "train_films": 173
+      },
+      {
+        "id": 1415,
+        "name": "small town",
+        "train_films": 359
+      },
+      {
+        "id": 966,
+        "name": "beach",
+        "train_films": 248
+      },
+      {
+        "id": 1556,
+        "name": "texas",
+        "train_films": 169
+      },
+      {
+        "id": 5331,
+        "name": "village",
+        "train_films": 157
+      },
+      {
+        "id": 11004,
+        "name": "rural area",
+        "train_films": 148
+      },
+      {
+        "id": 12354,
+        "name": "hong kong",
+        "train_films": 145
+      },
+      {
+        "id": 90,
+        "name": "paris, france",
+        "train_films": 450
+      },
+      {
+        "id": 254,
+        "name": "france",
+        "train_films": 238
+      },
+      {
+        "id": 233,
+        "name": "japan",
+        "train_films": 386
+      },
+      {
+        "id": 534,
+        "name": "mexico",
+        "train_films": 250
+      },
+      {
+        "id": 409,
+        "name": "africa",
+        "train_films": 199
+      },
+      {
+        "id": 131,
+        "name": "italy",
+        "train_films": 184
+      },
+      {
+        "id": 5657,
+        "name": "australia",
+        "train_films": 178
+      },
+      {
+        "id": 1200,
+        "name": "greece",
+        "train_films": 170
+      },
+      {
+        "id": 612,
+        "name": "hotel",
+        "train_films": 241
+      }
+    ],
+    "mood or style word": [
+      {
+        "id": 311315,
+        "name": "dramatic",
+        "train_films": 175
+      },
+      {
+        "id": 321464,
+        "name": "intense",
+        "train_films": 155
+      },
+      {
+        "id": 314730,
+        "name": "suspenseful",
+        "train_films": 169
+      },
+      {
+        "id": 325761,
+        "name": "admiring",
+        "train_films": 160
+      },
+      {
+        "id": 164246,
+        "name": "nostalgic",
+        "train_films": 131
+      },
+      {
+        "id": 202371,
+        "name": "aggressive",
+        "train_films": 141
+      },
+      {
+        "id": 3307,
+        "name": "surreal",
+        "train_films": 136
+      },
+      {
+        "id": 9887,
+        "name": "surrealism",
+        "train_films": 349
+      },
+      {
+        "id": 9856,
+        "name": "flashback",
+        "train_films": 226
+      },
+      {
+        "id": 11322,
+        "name": "female protagonist",
+        "train_films": 176
+      },
+      {
+        "id": 4434,
+        "name": "interview",
+        "train_films": 134
+      },
+      {
+        "id": 13028,
+        "name": "writer",
+        "train_films": 214
+      },
+      {
+        "id": 1003,
+        "name": "photographer",
+        "train_films": 170
+      },
+      {
+        "id": 14735,
+        "name": "motorcycle",
+        "train_films": 153
+      },
+      {
+        "id": 13008,
+        "name": "train",
+        "train_films": 163
+      },
+      {
+        "id": 309974,
+        "name": "absurd",
+        "train_films": 291
+      },
+      {
+        "id": 155493,
+        "name": "campy",
+        "train_films": 195
+      },
+      {
+        "id": 325765,
+        "name": "amused",
+        "train_films": 245
+      }
+    ]
+  }
+}

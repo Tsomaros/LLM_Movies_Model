@@ -1,10 +1,10 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-9 done. Next: Task 10 (form contract).
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-10 done. Next: Task 11 (leak-safe track records).
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
-- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 6cbdae9; its CI run passed
-  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42041203944).
+- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 43604d6; its CI run passed
+  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42042468166).
 
 ## Done
 - 2026-11-05: Design spec approved; roadmap and Phase 1 plan written; `CLAUDE.md`, the three subagents (adapted) and the
@@ -26,6 +26,7 @@
   and test-auditor run on Windows.
 - 2026-11-05: Task 9 (time splits, test lock, `movies.split` filled). 422 tests pass, ruff clean, code-reviewer and test-auditor
   run on Windows.
+- 2026-11-05: Task 10 (form contract). 550 tests pass, ruff clean, code-reviewer and test-auditor run on Windows.
 
 ## Open questions
 - `min_votes` for the score target: decided from the Phase 1 data report.
@@ -77,6 +78,13 @@
   rejects non-contiguous year bands. Locked rows sit in `movies` with a plain `split` value, so the lock guards against accidents
   only. For Task 14: the plan's single parquet holds every split, so decide how locked rows are stored and read, keep `later` films
   out of training, and don't print ids or results for test and holdout in the report.
+- Form contract: `llm_movies/contract/form.py` copies the app's rules. It differs in returning errors as a list of `{field, message}`,
+  loading themes itself, reading blank strings as absent, not crashing on huge integers (the app's `_number` still has that bug),
+  and `distributor` being name-only text, not the plan's ref. It owns `CERTIFICATIONS`; `SOURCE_TYPES` stays in `source_material.py`.
+- For Task 12: the plan's Review Focus names `test_award_on_release_day_not_counted` under Task 10; it belongs with `prior_awards`.
+- For Task 13: never run `validate` on training forms. `film_to_form` emits the clean shape directly with TMDB ids and `resolve`
+  accepts it. Films with under 5 actors or no themes must still resolve, a `None` release type from `clean.py` needs handling, and
+  actors cap at 10, writers and producers at 3.
 - For later tasks: `revenue_2025` can be set on a film not yet 182 days old or not yet released, so training filters must
   use `revenue_incomplete`. Pre-1960 films keep their row but have no money, since the CPI file starts in 1960. A missing
   top-level `id` raises on purpose, so decide in Task 8 whether a build stops or skips. `pick_distributor` relies on Wikidata's

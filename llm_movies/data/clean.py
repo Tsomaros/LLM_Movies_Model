@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
+from llm_movies.contract.form import CERTIFICATIONS, UNRATED
 from llm_movies.data.money import clean_amount, to_2025_usd
 from llm_movies.data.source_material import source_category
 from llm_movies.data.wikidata import FilmFacts, pick_worldwide_usd
@@ -11,8 +12,6 @@ from llm_movies.data.wikidata import FilmFacts, pick_worldwide_usd
 LOW_RATIO = 0.0001  # revenue / budget below this means the revenue is probably a partial or wrong figure
 INCOMPLETE_DAYS = 182  # an earlier film's revenue and score count once it is this old
 KEPT_STATUSES = {"Released", "Post Production", "In Production", "Planned"}
-UNKNOWN_CERTIFICATION = "unrated/unknown"
-CERTIFICATIONS = ("G", "PG", "PG-13", "R", "NC-17")
 
 # Release types in TMDB's release_dates: 1 premiere, 2 theatrical (limited), 3 theatrical, 4 digital, 5 physical, 6 TV.
 _PREMIERE, _LIMITED, _WIDE = 1, 2, 3
@@ -214,8 +213,8 @@ def _certification(by_country: dict[str, list]) -> str:
     us = sorted(by_country.get("US", []), key=lambda e: e[0])  # stable: same-day entries keep their order
     theatrical = [c for _, k, c in us if k in (_LIMITED, _WIDE) and c]
     anyone = [c for _, _, c in us if c]
-    found = (theatrical or anyone or [UNKNOWN_CERTIFICATION])[0]
-    return found if found in CERTIFICATIONS else UNKNOWN_CERTIFICATION
+    found = (theatrical or anyone or [UNRATED])[0]
+    return found if found in CERTIFICATIONS else UNRATED
 
 
 def _money(tmdb_amount, wikidata_values, year: int, cpi: dict, fx: dict) -> tuple[float | None, str | None]:

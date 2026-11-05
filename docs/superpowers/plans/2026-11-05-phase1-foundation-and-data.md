@@ -233,8 +233,8 @@ def test_cpi_file_has_1960_to_2026():
 
 **Interfaces:**
 - Produces: `GENRES`, `CERTIFICATIONS`, `MIN_YEAR=1960`, `MAX_YEAR=2035`, `MIN_RUNTIME=40`, `MAX_RUNTIME=300`, `MIN_BUDGET=1_000`, `MAX_BUDGET=1_000_000_000`, `MAX_SYNOPSIS=2_000`, `MIN_ACTORS=5`, `MAX_ACTORS=10` (copied from the app's contract), plus `RELEASE_TYPES = ("wide","limited","festival-first","streaming-only")`, `MAX_TAGLINE = 150`; `FIELDS` (the app's 14 + writers refs 0–3, producers refs 0–3, composer ref 0–1, distributor ref 0–1, source_material choice of `SOURCE_TYPES`, release_day int 1–31, release_type choice default `"wide"`, tagline text ≤150); `validate(form: dict) -> tuple[dict, list[dict]]` (errors as `{"field", "message"}`; unknown fields are errors; release_day checked against year+month with `calendar.monthrange`).
-- [ ] **Step 1: Failing tests:** `test_minimal_valid_form`, `test_required_fields_missing`, `test_release_day_31_in_april_rejected`, `test_writers_max_three`, `test_tagline_over_150_rejected`, `test_release_type_defaults_to_wide`, `test_unknown_field_rejected`, `test_post_release_fields_rejected` (`vote_average`, `popularity`, `revenue` → errors).
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(contract): creator form with the new fields`.
+- [x] **Step 1: Failing tests:** `test_minimal_valid_form`, `test_required_fields_missing`, `test_release_day_31_in_april_rejected`, `test_writers_max_three`, `test_tagline_over_150_rejected`, `test_release_type_defaults_to_wide`, `test_unknown_field_rejected`, `test_post_release_fields_rejected` (`vote_average`, `popularity`, `revenue` → errors).
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(contract): creator form with the new fields`.
 
 ### Task 11: Leak-safe track records
 
