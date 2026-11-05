@@ -104,6 +104,7 @@ class MovieRow:
     overview: str | None
     tagline: str | None
     collection_id: int | None
+    collection_name: str | None  # TMDB's name for the collection, when it gives one
     budget_2025: float | None
     revenue_2025: float | None
     revenue_source: str | None  # "tmdb" | "wikidata" | None
@@ -242,7 +243,8 @@ def clean_movie(raw: dict, wd: FilmFacts | None, cpi: dict, fx: dict, pulled_at:
     keywords = _names(_dict(raw.get("keywords")).get("keywords"), "name")
     kind = release_type(_chosen_country(by_country))
     runtime = raw.get("runtime")
-    collection = _dict(raw.get("belongs_to_collection")).get("id")
+    belongs = _dict(raw.get("belongs_to_collection"))
+    collection = belongs.get("id")
     return MovieRow(
         tmdb_id=raw["id"],  # required: a missing top-level id raises KeyError on purpose
         title=_text(raw.get("title")),
@@ -259,6 +261,7 @@ def clean_movie(raw: dict, wd: FilmFacts | None, cpi: dict, fx: dict, pulled_at:
         overview=_text(raw.get("overview")),
         tagline=_text(raw.get("tagline")),
         collection_id=collection,
+        collection_name=_text(belongs.get("name")),
         budget_2025=budget,
         revenue_2025=revenue,
         revenue_source=revenue_source,

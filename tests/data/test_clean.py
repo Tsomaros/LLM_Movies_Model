@@ -32,7 +32,7 @@ def raw_film(**over) -> dict:
         "keywords": {"keywords": [{"name": "based on novel or book"}]},
         "overview": "An overview.",
         "tagline": "A tagline.",
-        "belongs_to_collection": {"id": 77},
+        "belongs_to_collection": {"id": 77, "name": "Test Collection"},
         "budget": 0,
         "revenue": 0,
         "vote_count": 10,
@@ -116,6 +116,7 @@ def test_popularity_absent_from_movie_row():
 def test_empty_values_become_none():
     row = clean(raw_film(title="", overview="", tagline="  ", original_language="", runtime=0, belongs_to_collection=None))
     assert (row.title, row.overview, row.tagline, row.language, row.runtime, row.collection_id) == (None,) * 6
+    assert row.collection_name is None
 
 
 def test_plain_fields_copied():
@@ -123,6 +124,7 @@ def test_plain_fields_copied():
     assert (row.tmdb_id, row.title, row.year, row.month, row.day) == (1, "Test Film", 2000, 6, 1)
     assert (row.runtime, row.language, row.countries, row.genres) == (100, "en", ["US"], ["Drama"])
     assert (row.keywords, row.collection_id, row.wd_qid) == (["based on novel or book"], 77, None)
+    assert row.collection_name == "Test Collection"
     assert row.source_material == "novel"
 
 
@@ -529,3 +531,9 @@ def test_real_joker_response():
     # 2019-10-04, a gap of 6 days. That is below FESTIVAL_GAP_DAYS (30), so it is a red-carpet premiere, not a
     # festival debut, and the film reads "wide".
     assert row.release_type == "wide"
+
+
+def test_collection_name_missing_or_blank_is_none_and_the_id_stays():
+    for collection in ({"id": 77}, {"id": 77, "name": "  "}, {"id": 77, "name": None}, {"id": 77, "name": 5}):
+        row = clean(raw_film(belongs_to_collection=collection))
+        assert (row.collection_id, row.collection_name) == (77, None)

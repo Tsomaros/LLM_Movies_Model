@@ -1,10 +1,10 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-12 done. Next: Task 13 (resolve and render prompts).
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-13 done. Next: Task 14 (dataset export and data report).
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
-- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at a6d0daa; its CI run passed
-  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42046992938).
+- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 5df791e; its CI run passed
+  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42050096414).
 
 ## Done
 - 2026-11-05: Design spec approved; roadmap and Phase 1 plan written; `CLAUDE.md`, the three subagents (adapted) and the
@@ -31,13 +31,16 @@
   audit ran 56 leak mutants against the tests.
 - 2026-11-05: Task 12 (the six computed inputs, `source_sitelinks` column). 609 tests pass, ruff clean, code-reviewer and test-auditor
   run on Windows.
+- 2026-11-05: Task 13 (resolve and render, `collection_name` column, three golden prompts). 727 tests pass, ruff clean, code-reviewer
+  and test-auditor run on Windows; the audit ran 104 mutants.
 
 ## Open questions
 - Possible outcome leaks to check before training (Phase 1 data report or Phase 2): `source_sitelinks` is today's count, so a hit film
   can raise its source's page count (try training with and without it); `release_type` comes from TMDB entries added after release,
   so "streaming-only" may mark films that flopped; `distributor` may list later rights holders; themes and keywords may hold outcome
   words such as "cult". `money_suspect` comes from revenue, so History's budget filter has a small leak for films under 182 days old.
-- `source_sitelinks` at serving: the form has no such field, so decide in Task 13 where a user form's value comes from.
+- `source_sitelinks` at serving: the form has no such field, so user forms print "not given" while training films show a count. Drop the
+  line in Phase 2 if the leak check or this skew says so.
 - `min_votes` for the score target: decided from the Phase 1 data report.
 - Base model and its training cutoff: decided in Phase 2.
 
@@ -106,6 +109,17 @@
   "not given" and keep the JSON round trip valid. Also, never run `validate` on training forms. `film_to_form` emits the clean shape directly with TMDB ids and `resolve`
   accepts it. Films with under 5 actors or no themes must still resolve, a `None` release type from `clean.py` needs handling, and
   actors cap at 10, writers and producers at 3.
+- Prompts: `llm_movies/prompt/` builds one fixed layout. Extras beyond the spec's layout, because spec 4.2 lists them as inputs: director and
+  lead age, collaborations, source strength, wins beside nominations, company records. A first franchise entry shows no franchise, in
+  training and serving alike. A nameless person prints `Unnamed` with the real record. A training film's budget ignores `money_suspect`.
+  `release_type` None prints "not given", never wide. Regenerate goldens only with `UPDATE_GOLDEN=1`.
+- For Task 14: stream resolve and write in chunks, never holding 1.2M objects; build `Context` once; always pass `form_as_of(form)`; audit
+  rendered text for outcome words in free text (box office, grossing, dollar figures, Oscar, Academy Award). Estimated 20-40 minutes on one
+  core at 1.2M films, unmeasured. The longest real mini prompt is 2,160 characters; a synthetic worst case reached 2,929 with long names.
+- For Phase 2: measure real tokens, since digit-heavy person lines may exceed the spec's 400-600. A hidden `release_day` still leaves
+  day-based values from the true day, a small conservative skew from serving's 1st of the month. An anonymised-names experiment must
+  anonymise the franchise name too. Later franchise names and rare synopsis details can identify a film. `render` imports `resolve.py` and
+  so pandas; split `ResolvedFilm` out if the Space needs it lighter. Themes come from keywords TMDB fills in after release.
 - For later tasks: `revenue_2025` can be set on a film not yet 182 days old or not yet released, so training filters must
   use `revenue_incomplete`. Pre-1960 films keep their row but have no money, since the CPI file starts in 1960. A missing
   top-level `id` raises on purpose, so decide in Task 8 whether a build stops or skips. `pick_distributor` relies on Wikidata's

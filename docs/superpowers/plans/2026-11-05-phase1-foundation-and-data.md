@@ -274,8 +274,8 @@ def test_cpi_file_has_1960_to_2026():
   - `resolve(form: dict, as_of: date, ctx: Context) -> ResolvedFilm` (as_of = release date for training films; 1st of the release month for user forms unless release_day is given).
   - `OPTIONAL_GROUPS = ("writers","producers","composer","distributor","source_material","release_day","tagline","synopsis","budget","companies","countries","franchise")`.
   - `render(r: ResolvedFilm, hidden: frozenset[str] = frozenset()) -> str`: the layout in spec section 7, line order fixed; hidden or missing optional fields print `not given`; synopsis cut to 120 words; money as `$480M`/`$1.2B`; no title.
-- [ ] **Step 1: Failing tests:** `test_render_matches_golden` (×3), `test_hidden_fields_print_not_given`, `test_resolved_json_roundtrip`, `test_no_post_release_values_in_prompt` (vote_average/popularity/revenue of the film itself never appear: render with sentinel values 9.87 / 123456.7 → not in text), `test_synopsis_truncated_to_120_words`, `test_prompt_under_700_tokens_proxy` (≤ 2,800 characters for the longest golden).
-- [ ] **Step 2–4:** FAIL → implement → PASS. Regenerate goldens only with `UPDATE_GOLDEN=1`. **Step 5:** Commit `feat(prompt): resolve and render`.
+- [x] **Step 1: Failing tests:** `test_render_matches_golden` (×3), `test_hidden_fields_print_not_given`, `test_resolved_json_roundtrip`, `test_no_post_release_values_in_prompt` (vote_average/popularity/revenue of the film itself never appear: render with sentinel values 9.87 / 123456.7 → not in text), `test_synopsis_truncated_to_120_words`, `test_prompt_under_700_tokens_proxy` (≤ 2,800 characters for the longest golden).
+- [x] **Step 2–4:** FAIL → implement → PASS. Regenerate goldens only with `UPDATE_GOLDEN=1`. **Step 5:** Commit `feat(prompt): resolve and render`.
 
 ### Task 14: Dataset export and data report
 
