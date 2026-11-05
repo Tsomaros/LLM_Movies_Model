@@ -48,3 +48,35 @@ def test_cutoff_parses_as_date(tmp_path):
     p = tmp_path / "d.yaml"
     p.write_text(Path("config/data.yaml").read_text().replace("base_model_cutoff: null", "base_model_cutoff: 2024-06-30"))
     assert load_config(p).base_model_cutoff == date(2024, 6, 30)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"calibration_years": (2015, 2016), "validation_years": (2017, 2018)},  # gap before calibration (2014)
+        {"validation_years": (2017, 2018)},  # gap before validation (2016)
+        {"test_from_year": 2020},  # gap before test (2019)
+        {"validation_years": (2015, 2018)},  # overlap with calibration
+        {"test_from_year": 2018},  # overlap of test with validation
+        # reversed pairs where every seam still holds, so only the ordering check can catch them
+        {"train_max_year": 2014, "calibration_years": (2015, 2014), "validation_years": (2015, 2018)},
+        {"validation_years": (2016, 2015), "test_from_year": 2016},
+    ],
+)
+def test_non_contiguous_bands_are_rejected(changes):
+    with pytest.raises(ValueError, match="contiguous"):
+        dataclasses.replace(DataConfig(), **changes)
+
+
+def test_other_contiguous_bands_are_accepted():
+    c = DataConfig(train_max_year=2000, calibration_years=(2001, 2001), validation_years=(2002, 2004), test_from_year=2005)
+    assert c.test_from_year == 2005
+    # one-year validation band is also valid (v0 == v1)
+    DataConfig(train_max_year=2000, calibration_years=(2001, 2001), validation_years=(2002, 2002), test_from_year=2003)
+
+
+def test_bad_yaml_is_rejected(tmp_path):
+    p = tmp_path / "d.yaml"
+    p.write_text(Path("config/data.yaml").read_text().replace("test_from_year: 2019", "test_from_year: 2020"))
+    with pytest.raises(ValueError, match="contiguous"):
+        load_config(p)

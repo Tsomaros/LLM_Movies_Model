@@ -2,11 +2,13 @@ import hashlib
 import json
 import shutil
 import sqlite3
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
 import pytest
 
+from llm_movies.config import DataConfig
 from llm_movies.data.awards import FAMILIES
 from llm_movies.data.build_db import build_db, main
 
@@ -418,11 +420,37 @@ def test_movies_columns(tmp_path):
         for column in (r[1] for r in rows(out, f"PRAGMA table_info({table})")):
             if any(word in column for word in ("popularity", "vote", "revenue")):
                 assert table == "movies" and column in allowed, f"{table}.{column}"
-    assert rows(out, "SELECT COUNT(*) FROM movies WHERE split IS NOT NULL") == [(0,)]
     countries, genres, release_date = rows(out, "SELECT countries, genres, release_date FROM movies WHERE tmdb_id = 475557")[0]
     assert json.loads(countries) and "Crime" in json.loads(genres)
     assert release_date == "2019-10-01"
     assert {v for (v,) in rows(out, "SELECT DISTINCT money_suspect FROM movies")} <= {0, 1}
+
+
+def test_movies_split_filled(tmp_path):
+    out, _ = build(tmp_path)  # the default config: train <= 2013, calibration 2014-15, validation 2016-18, test 2019+
+    assert rows(out, "SELECT COUNT(*) FROM movies WHERE split IS NULL") == [(0,)]
+    splits = dict(rows(out, "SELECT tmdb_id, split FROM movies"))
+    assert splits[77] == "train"  # Memento, 2000
+    assert splits[106646] == "train"  # The Wolf of Wall Street, 2013-12-25
+    assert splits[157336] == "calibration"  # Interstellar, 2014
+    assert splits[273248] == "calibration"  # The Hateful Eight, 2015-12-25
+    assert splits[279641] == "validation"  # Whiskey Tango Foxtrot, 2016
+    assert splits[374720] == "validation"  # Dunkirk, 2017
+    assert splits[475557] == "test"  # Joker, 2019
+    assert splits[577922] == "test"  # Tenet, 2020
+    assert splits[1003598] == "test"  # Avengers: Secret Wars, 2027 (no cutoff configured)
+
+
+def test_movies_split_uses_given_config_and_pulled_at(tmp_path):
+    cfg = replace(DataConfig(), base_model_cutoff=date(2022, 12, 31))
+    out = tmp_path / "cut.db"
+    build_db(MINI / "tmdb", MINI / "wd_films", MINI / "wd_people", out, PULLED_AT, cfg=cfg)
+    splits = dict(rows(out, "SELECT tmdb_id, split FROM movies"))
+    assert splits[577922] == "test"  # Tenet, 2020: before the cutoff
+    assert splits[872585] == "holdout"  # Oppenheimer, 2023-07-19: after the cutoff, over 182 days old
+    assert splits[791523] == "later"  # Wildwood, 2026-10-19: 16 days old
+    assert splits[1003598] == "later"  # Avengers: Secret Wars, 2027: not yet released
+    assert splits[157336] == "calibration"
 
 
 def test_pulled_at_drives_incomplete_flag_and_meta(tmp_path):

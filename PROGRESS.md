@@ -1,10 +1,10 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-8 done. Next: Task 9 (splits and the test lock), which also fills `movies.split`.
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-9 done. Next: Task 10 (form contract).
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
-- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at fed3002; its CI run passed
-  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42027850257).
+- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 6cbdae9; its CI run passed
+  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42041203944).
 
 ## Done
 - 2026-11-05: Design spec approved; roadmap and Phase 1 plan written; `CLAUDE.md`, the three subagents (adapted) and the
@@ -71,7 +71,11 @@
   Task 12 counts rows and skips NULL `when`. A given Wikidata dir without its shard raises, and only `None` builds without
   Wikidata (the CLI always needs both). `--pulled-at` defaults to the latest in the TMDB shards. A record without `id` stops the build.
   Film facts stay in memory, an estimated 1-2 GB on a full build, not measured: check it in Task 15's run.
-- For Task 9 and later: `revenue_2025` can be set on a film not yet 182 days old or not yet released, so training filters must
+- Splits: `assign_split(release, cfg, pulled_at)` takes `pulled_at`, beyond the plan's signature, because holdout needs it. `DataConfig`
+  rejects non-contiguous year bands. Locked rows sit in `movies` with a plain `split` value, so the lock guards against accidents
+  only. For Task 14: the plan's single parquet holds every split, so decide how locked rows are stored and read, keep `later` films
+  out of training, and don't print ids or results for test and holdout in the report.
+- For later tasks: `revenue_2025` can be set on a film not yet 182 days old or not yet released, so training filters must
   use `revenue_incomplete`. Pre-1960 films keep their row but have no money, since the CPI file starts in 1960. A missing
   top-level `id` raises on purpose, so decide in Task 8 whether a build stops or skips. `pick_distributor` relies on Wikidata's
   labels being sorted, which `wikidata.py` guarantees.

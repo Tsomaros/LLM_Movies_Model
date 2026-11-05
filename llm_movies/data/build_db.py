@@ -3,7 +3,7 @@
 python -m llm_movies.data.build_db --tmdb DIR --wd-films DIR --wd-people DIR --out PATH [--pulled-at YYYY-MM-DD]
 
 The build is deterministic (no wall-clock time is stored) and atomic: it writes `out.with_suffix(".tmp")` and replaces
-`out` only when everything succeeded. `movies.split` is left NULL; the split step fills it.
+`out` only when everything succeeded. `movies.split` is filled from the release date by `assign_split`.
 """
 
 import argparse
@@ -14,11 +14,13 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
+from llm_movies.config import DataConfig, load_config
 from llm_movies.data.awards import award_family
 from llm_movies.data.clean import MovieRow, clean_movie
 from llm_movies.data.money import load_cpi, load_fx
 from llm_movies.data.shards import read_shard
 from llm_movies.data.wikidata import FilmFacts, PersonFacts
+from llm_movies.eval.splits import assign_split
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 BATCH_FILMS = 5000
@@ -76,7 +78,7 @@ def _tmdb_shards(tmdb_dir: Path) -> list[Path]:
     return sorted(Path(tmdb_dir).glob("tmdb_*.jsonl"))
 
 
-def _movie_values(row: MovieRow) -> tuple:
+def _movie_values(row: MovieRow, split: str) -> tuple:
     values = []
     for name, _ in _MOVIE_COLUMNS:
         value = getattr(row, name)
@@ -87,7 +89,7 @@ def _movie_values(row: MovieRow) -> tuple:
         elif isinstance(value, date):
             value = value.isoformat()
         values.append(value)
-    return (*values, None)
+    return (*values, split)
 
 
 def _int_id(entry) -> int | None:
@@ -175,9 +177,9 @@ class _Buffers:
                 rows.clear()
 
 
-def _add_film(buffers: _Buffers, raw: dict, row: MovieRow) -> None:
+def _add_film(buffers: _Buffers, raw: dict, row: MovieRow, split: str) -> None:
     movie_id = row.tmdb_id
-    buffers.add("movies", _movie_values(row))
+    buffers.add("movies", _movie_values(row, split))
     for person_id, name, role, order in _credits(raw):
         buffers.add("people", (person_id, name))
         buffers.add("credits", (movie_id, person_id, role, order))
@@ -198,7 +200,7 @@ def _add_film(buffers: _Buffers, raw: dict, row: MovieRow) -> None:
             buffers.add("movie_keywords", (movie_id, keyword_id))
 
 
-def _fill_films(con, tmdb_dir, films, pulled_at, cpi, fx) -> dict:
+def _fill_films(con, tmdb_dir, films, pulled_at, cpi, fx, cfg) -> dict:
     buffers = _Buffers(con)
     seen: set[int] = set()
     dropped = duplicates = 0
@@ -219,7 +221,7 @@ def _fill_films(con, tmdb_dir, films, pulled_at, cpi, fx) -> dict:
             if row is None:
                 dropped += 1
                 continue
-            _add_film(buffers, raw, row)
+            _add_film(buffers, raw, row, assign_split(row.release_date, cfg, pulled_at))
             pending += 1
             if pending >= BATCH_FILMS:
                 buffers.flush()
@@ -263,13 +265,16 @@ def build_db(
     pulled_at: date,
     cpi: dict | None = None,
     fx: dict | None = None,
+    *,
+    cfg: DataConfig | None = None,
 ) -> dict:
-    """Build the database at `out` and return its counts. CPI and FX default to the files in data/.
+    """Build the database at `out` and return its counts. CPI and FX default to the files in data/, `cfg` to config/data.yaml.
 
     `out` must be on local disk: SQLite is never built on Google Drive. A Wikidata directory of None means deliberately
     no Wikidata; a given directory without its shard raises FileNotFoundError. The Wikidata record counts are in the
     counts and in `meta`, so a thin build is visible."""
     out = Path(out)
+    cfg = cfg if cfg is not None else load_config()
     cpi = cpi if cpi is not None else load_cpi(DATA_DIR / "cpi_us_annual.csv")
     fx = fx if fx is not None else load_fx(DATA_DIR / "fx_usd_annual.csv")
     films_path = _wd_shard(wd_films_dir, "wd_films.jsonl")
@@ -285,7 +290,7 @@ def build_db(
         con.execute("PRAGMA synchronous = OFF")
         for statement in _SCHEMA:
             con.execute(statement)
-        counts = _fill_films(con, tmdb_dir, films, pulled_at, cpi, fx)
+        counts = _fill_films(con, tmdb_dir, films, pulled_at, cpi, fx, cfg)
         wd_people = _fill_people(con, people_path)
         for statement in _INDEXES:
             con.execute(statement)

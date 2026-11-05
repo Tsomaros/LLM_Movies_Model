@@ -224,8 +224,8 @@ def test_cpi_file_has_1960_to_2026():
 **Interfaces:**
 - Consumes: Task 1 `DataConfig`.
 - Produces: `assign_split(release: date, cfg: DataConfig) -> Literal["train","calibration","validation","test","holdout"]`; `class TestSetLocked(Exception)`; `load_split(df: pd.DataFrame, name: str, final: bool = False) -> pd.DataFrame` (raises for test/holdout unless `final`). Holdout requires `release <= pulled_at - 182 days`; later films get `"later"` (never used).
-- [ ] **Step 1: Failing tests:** boundaries (2013-12-31 train, 2014-01-01 calibration, 2016-01-01 validation, 2019-01-01 test), `test_null_cutoff_puts_all_2019plus_in_test`, `test_cutoff_moves_later_films_to_holdout`, `test_unsettled_after_cutoff_is_later`, `test_locked_without_final`, and `test_only_final_module_passes_final_true` (grep the package: `final=True` appears only in `llm_movies/eval/final.py`, which does not exist yet → zero occurrences allowed now).
-- [ ] **Step 2–4:** FAIL → implement → PASS. Wire `build_db` to fill `movies.split`. **Step 5:** Commit `feat(eval): time splits and test lock`.
+- [x] **Step 1: Failing tests:** boundaries (2013-12-31 train, 2014-01-01 calibration, 2016-01-01 validation, 2019-01-01 test), `test_null_cutoff_puts_all_2019plus_in_test`, `test_cutoff_moves_later_films_to_holdout`, `test_unsettled_after_cutoff_is_later`, `test_locked_without_final`, and `test_only_final_module_passes_final_true` (grep the package: `final=True` appears only in `llm_movies/eval/final.py`, which does not exist yet → zero occurrences allowed now).
+- [x] **Step 2–4:** FAIL → implement → PASS. Wire `build_db` to fill `movies.split`. **Step 5:** Commit `feat(eval): time splits and test lock`.
 
 ### Task 10: Form contract
 
