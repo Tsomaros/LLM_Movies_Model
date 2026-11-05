@@ -1,13 +1,14 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-3 and 5 done; Task 4 done except its manual check. Next: Task 6 (Wikidata enrichment).
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-3 and 5-6 done; Task 4 done except its manual check. Next: Task 7 (cleaning).
 - Task 4 still open, needs `TMDB_READ_TOKEN` in the environment or `.env`: Step 5, the `--limit 50` check against the live API
   (expect 50 lines minus missing, manifest unchanged; the plan's "manifest updated" was overruled, see Notes), and saving the
   trimmed real response `tests/fixtures/tmdb_movie_475557.json`. `TmdbClient` has only met hand-built responses so far.
   Task 8's mini fixtures also come from real responses, so the token is needed by then at the latest.
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
-- No GitHub remote yet, so `.github/workflows/ci.yml` has not run. Check the first run after the first push.
+- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public, empty so far). Nothing pushed yet, so
+  `.github/workflows/ci.yml` has not run. Check the first run after the first push.
 
 ## Done
 - 2026-11-05: Design spec approved; roadmap and Phase 1 plan written; `CLAUDE.md`, the three subagents (adapted) and the
@@ -18,8 +19,12 @@
 - 2026-11-05: Task 4 (TMDB IDs, client, resumable pull, CLI), except Step 5 and the real fixture. 77 tests pass, ruff clean,
   code-reviewer and test-auditor run on Windows.
 - 2026-11-05: Task 5 (source categories, award families). Code-reviewer and test-auditor run on Windows.
+- 2026-11-05: Task 6 (Wikidata queries, parsers, CLI), including its live check. 220 tests pass, ruff clean, code-reviewer and
+  test-auditor run on Windows.
 
 ## Open questions
+- Task 7 `distributor`: the plan's "first of Wikidata's sorted list" gives "InterCom" for Joker over Warner Bros., which would
+  put noise in the distributor track records. Needs a better rule before Task 7 runs.
 - `min_votes` for the score target: decided from the Phase 1 data report.
 - Base model and its training cutoff: decided in Phase 2.
 
@@ -47,4 +52,11 @@
 - Source categories are a best guess when Wikidata is vague: "literary work", "written work" and "book" map to novel, so a
   non-fiction source or a musical typed that way reads as novel, and a sequel linked to a film by P144 reads as remake. Films based
   on a character, a short or a documentary fall back to keywords. Check `source_material` in the Phase 1 data report.
+- Wikidata: queries use UNION branches and skip deprecated statements. `AwardEvent.when` is the last day an imprecise date could
+  mean, so Task 12 must count only `when < as_of` and skip None. Every id gets a record (`facts: null` means no item). `run_pull`
+  prints nothing until it ends, about 2 hours on the full id list. Live check, 500 ids: chunk 0 had 495 items, distributors 92%,
+  P144 37%; top-500 popular films had 457 items, distributors 82%, P144 39%.
+- For Task 7: Wikidata box office is often undated, so `pick_worldwide_usd` returns `year=None`, and `to_2025_usd` gives None for
+  that. Convert with the release year or those revenues vanish (Joker's among them). Set `revenue_source="wikidata"` only when
+  the converted value exists.
 - For Task 7: `clean_amount` handles NaN, but `pd.NA` raises in `math.isnan`. Convert to plain floats or None before calling it.

@@ -20,7 +20,7 @@
 - Track-record shrinkage: `(n * own + SHRINK_FILMS * typical) / (n + SHRINK_FILMS)` with `SHRINK_FILMS = 4`, typical film built from earlier films only.
 - Splits by release date: train ≤2013, calibration 2014–2015, validation 2016–2018, test 2019→cutoff, holdout after cutoff (cutoff = `base_model_cutoff` in `config/data.yaml`, `null` until Phase 2; while `null`, every film from 2019 is `test`). Test and holdout are locked: loading them raises `TestSetLocked` unless `final=True`.
 - Score target: `vote_average`, weight `log(1 + vote_count)`; minimum vote count is a config value `min_votes` (default 50) decided after the data report.
-- Wikidata requests send `User-Agent: LLMMoviesPredictionModel/0.1 (https://github.com/Tsomaros/LLM_Movies_Prediction_Model)` and never an email address.
+- Wikidata requests send `User-Agent: LLMMoviesPredictionModel/0.1 (https://github.com/Tsomaros/LLM_Movies_Model)` and never an email address.
 - Secrets (TMDB token, HF token) come from environment variables `TMDB_READ_TOKEN`, `HF_TOKEN` (Colab Secrets in notebooks, `.env` locally); never committed.
 - Notebooks only launch `python -m llm_movies....` commands; no logic in notebooks.
 - SQLite is built on local disk, never written directly on Google Drive.
@@ -187,10 +187,10 @@ def test_cpi_file_has_1960_to_2026():
   - `pick_worldwide_usd(values: list[Money], fx) -> tuple[float | None, int | None]`: keep place = worldwide (`Q13780930`, verify the QID while saving the fixture) or no place; convert with `to_usd`; pick the latest dated figure, ties → largest; returns (usd, year).
   - `SparqlClient(session=None)` with `.run(query) -> dict` (retry on 429/5xx, honour `Retry-After`).
   - CLI `python -m llm_movies.data.wikidata films|people --ids PATH --out DIR` writing shards via Task 3 (one record per id, `{tmdb_id, facts}`), batch-resumable.
-- [ ] **Step 1: Failing tests:** `test_film_query_contains_values_and_properties`, `test_parse_joker_distributor_and_source`, `test_multiple_values_pick_deterministically` (two distributors → sorted list; two box-office values → latest year wins; non-USD converted; unknown currency ignored), `test_non_worldwide_box_office_ignored`, `test_parse_people_awards_with_dates`, `test_user_agent_has_no_email` (`"@" not in USER_AGENT`).
-- [ ] **Step 2–4:** FAIL → implement → PASS.
-- [ ] **Step 5:** Manual check: run `films` on 500 ids from chunk 0 → shard written; print coverage of distributors and P144.
-- [ ] **Step 6:** Commit `feat(data): Wikidata enrichment`.
+- [x] **Step 1: Failing tests:** `test_film_query_contains_values_and_properties`, `test_parse_joker_distributor_and_source`, `test_multiple_values_pick_deterministically` (two distributors → sorted list; two box-office values → latest year wins; non-USD converted; unknown currency ignored), `test_non_worldwide_box_office_ignored`, `test_parse_people_awards_with_dates`, `test_user_agent_has_no_email` (`"@" not in USER_AGENT`).
+- [x] **Step 2–4:** FAIL → implement → PASS.
+- [x] **Step 5:** Manual check: run `films` on 500 ids from chunk 0 → shard written; print coverage of distributors and P144.
+- [x] **Step 6:** Commit `feat(data): Wikidata enrichment`.
 
 ### Task 7: Cleaning
 
