@@ -24,6 +24,8 @@
   rule changes in Notes.
 - 2026-11-05: Task 8 (SQLite build, real mini shard set from `python -m tests.fixtures.make_mini`, 37 films, 328 KB). Code-reviewer
   and test-auditor run on Windows.
+- 2026-11-05: Task 9 (time splits, test lock, `movies.split` filled). 422 tests pass, ruff clean, code-reviewer and test-auditor
+  run on Windows.
 
 ## Open questions
 - `min_votes` for the score target: decided from the Phase 1 data report.
