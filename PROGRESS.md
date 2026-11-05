@@ -1,10 +1,10 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-10 done. Next: Task 11 (leak-safe track records).
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-11 done. Next: Task 12 (the six computed inputs).
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
-- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 43604d6; its CI run passed
-  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42042468166).
+- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 453c442; its CI run passed
+  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42044257829).
 
 ## Done
 - 2026-11-05: Design spec approved; roadmap and Phase 1 plan written; `CLAUDE.md`, the three subagents (adapted) and the
@@ -27,6 +27,8 @@
 - 2026-11-05: Task 9 (time splits, test lock, `movies.split` filled). 422 tests pass, ruff clean, code-reviewer and test-auditor
   run on Windows.
 - 2026-11-05: Task 10 (form contract). 550 tests pass, ruff clean, code-reviewer and test-auditor run on Windows.
+- 2026-11-05: Task 11 (leak-safe track records). 576 tests pass, ruff clean, code-reviewer and test-auditor run on Windows; the
+  audit ran 56 leak mutants against the tests.
 
 ## Open questions
 - `min_votes` for the score target: decided from the Phase 1 data report.
@@ -82,7 +84,12 @@
   loading themes itself, reading blank strings as absent, not crashing on huge integers (the app's `_number` still has that bug),
   and `distributor` being name-only text, not the plan's ref. It owns `CERTIFICATIONS`; `SOURCE_TYPES` stays in `source_material.py`.
 - For Task 12: the plan's Review Focus names `test_award_on_release_day_not_counted` under Task 10; it belongs with `prior_awards`.
-- For Task 13: never run `validate` on training forms. `film_to_form` emits the clean shape directly with TMDB ids and `resolve`
+- Track records follow the app's design. Revenue counts only when not suspect or incomplete, score only with at least `min_votes`
+  votes, budget only when not suspect. `n` in the shrinkage formula is the count of usable values, so it can differ from `films`.
+  An earlier film's score is its current TMDB rating, not its rating then (same limit as the app). On 200k films: `from_db` 2 s,
+  225 MB peak, `person` 47 us; not yet measured at 1.2M, where export calling it 25 times per film is about 25 minutes.
+- For Task 13: track-record values can be NaN on any record, new or not, when no earlier film has a usable value yet. Print
+  "not given" and keep the JSON round trip valid. Also, never run `validate` on training forms. `film_to_form` emits the clean shape directly with TMDB ids and `resolve`
   accepts it. Films with under 5 actors or no themes must still resolve, a `None` release type from `clean.py` needs handling, and
   actors cap at 10, writers and producers at 3.
 - For later tasks: `revenue_2025` can be set on a film not yet 182 days old or not yet released, so training filters must

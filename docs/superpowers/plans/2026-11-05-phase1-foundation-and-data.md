@@ -243,8 +243,8 @@ def test_cpi_file_has_1960_to_2026():
 **Interfaces:**
 - Consumes: Task 8 database.
 - Produces: `History.from_db(con) -> History`; `History.person(person_id: int | None, role: str, as_of: date) -> PersonRecord` with `films: int, years_active: int, revenue_log: float, score: float, budget_log: float, is_new: bool` (shrunk with `SHRINK_FILMS=4` towards `History.typical(as_of)`; revenue and score only from films ≥182 days old at `as_of`, budget from release); `History.company(company_id, as_of)` and `History.distributor(name, as_of)` returning the same record shape; `History.typical(as_of) -> tuple[float, float, float]` (median log revenue, score, log budget of earlier films). People names resolve with `History.resolve(ref: int | str | dict | None, role) -> int | None` (id wins; exact name match, most films wins; unknown → None = new).
-- [ ] **Step 1: Failing tests:** `test_film_never_counts_for_itself`, `test_revenue_waits_182_days_budget_does_not`, `test_shrinkage_formula` (one earlier film → `(1*own + 4*typical)/5`), `test_unknown_person_is_new_with_typical_values`, `test_time_travel_identical_inputs` (cut the mini DB at a date: records for every film released before the cut are identical with and without later films).
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(features): leak-safe track records`.
+- [x] **Step 1: Failing tests:** `test_film_never_counts_for_itself`, `test_revenue_waits_182_days_budget_does_not`, `test_shrinkage_formula` (one earlier film → `(1*own + 4*typical)/5`), `test_unknown_person_is_new_with_typical_values`, `test_time_travel_identical_inputs` (cut the mini DB at a date: records for every film released before the cut are identical with and without later films).
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(features): leak-safe track records`.
 
 ### Task 12: The six computed inputs
 
