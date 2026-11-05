@@ -204,8 +204,8 @@ def test_cpi_file_has_1960_to_2026():
   - `revenue_incomplete`: `(pulled_at - release_date).days < 182`.
   - `release_type` from US (else earliest country) `release_dates`: type 1 premiere before type 2/3 → `festival-first`; type 3 → `wide`; only type 2 → `limited`; only 4/5/6 → `streaming-only`; none → `None`.
   - `distributor`: first of Wikidata's sorted list, else None.
-- [ ] **Step 1: Failing tests:** `test_tmdb_money_wins_over_wikidata`, `test_wikidata_fills_missing_revenue`, `test_low_ratio_flags_suspect`, `test_release_type_rules` (one case per rule), `test_unreleased_without_date_dropped`, `test_post_release_fields_kept_only_as_targets` (MovieRow has vote fields; Task 13 asserts they never reach the resolved form).
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(data): cleaning rules`.
+- [x] **Step 1: Failing tests:** `test_tmdb_money_wins_over_wikidata`, `test_wikidata_fills_missing_revenue`, `test_low_ratio_flags_suspect`, `test_release_type_rules` (one case per rule), `test_unreleased_without_date_dropped`, `test_post_release_fields_kept_only_as_targets` (MovieRow has vote fields; Task 13 asserts they never reach the resolved form).
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(data): cleaning rules`.
 
 ### Task 8: SQLite build
 

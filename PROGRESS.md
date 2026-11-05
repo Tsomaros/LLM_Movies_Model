@@ -1,7 +1,7 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-3 and 5-6 done; Task 4 done except its manual check. Next: Task 7 (cleaning).
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-3 and 5-7 done; Task 4 done except its manual check. Next: Task 8 (SQLite build).
 - Task 4 still open, needs `TMDB_READ_TOKEN` in the environment or `.env`: Step 5, the `--limit 50` check against the live API
   (expect 50 lines minus missing, manifest unchanged; the plan's "manifest updated" was overruled, see Notes), and saving the
   trimmed real response `tests/fixtures/tmdb_movie_475557.json`. `TmdbClient` has only met hand-built responses so far.
@@ -21,10 +21,10 @@
 - 2026-11-05: Task 5 (source categories, award families). Code-reviewer and test-auditor run on Windows.
 - 2026-11-05: Task 6 (Wikidata queries, parsers, CLI), including its live check. 220 tests pass, ruff clean, code-reviewer and
   test-auditor run on Windows.
+- 2026-11-05: Task 7 (cleaning rules). Code-reviewer and test-auditor run on Windows. `clean.py` was written before its tests,
+  and RED was recorded by moving it aside; the audit found the tests were not shaped to the code.
 
 ## Open questions
-- Task 7 `distributor`: the plan's "first of Wikidata's sorted list" gives "InterCom" for Joker over Warner Bros., which would
-  put noise in the distributor track records. Needs a better rule before Task 7 runs.
 - `min_votes` for the score target: decided from the Phase 1 data report.
 - Base model and its training cutoff: decided in Phase 2.
 
@@ -56,7 +56,12 @@
   mean, so Task 12 must count only `when < as_of` and skip None. Every id gets a record (`facts: null` means no item). `run_pull`
   prints nothing until it ends, about 2 hours on the full id list. Live check, 500 ids: chunk 0 had 495 items, distributors 92%,
   P144 37%; top-500 popular films had 457 items, distributors 82%, P144 39%.
-- For Task 7: Wikidata box office is often undated, so `pick_worldwide_usd` returns `year=None`, and `to_2025_usd` gives None for
-  that. Convert with the release year or those revenues vanish (Joker's among them). Set `revenue_source="wikidata"` only when
-  the converted value exists.
-- For Task 7: `clean_amount` handles NaN, but `pd.NA` raises in `math.isnan`. Convert to plain floats or None before calling it.
+- Cleaning overrules the plan in two places. `distributor` is the family name from a table of majors in `clean.py` (Joker gives
+  "Warner Bros."; 81% of the 952 sampled Wikidata films resolve to one), retail storefronts are dropped by exact name, and the
+  first sorted label is only the fallback. CPI always uses the release year, because Wikidata figures are often undated.
+- For Task 8 and later: `revenue_2025` can be set on a film not yet 182 days old or not yet released, so training filters must
+  use `revenue_incomplete`. Pre-1960 films keep their row but have no money, since the CPI file starts in 1960. A missing
+  top-level `id` raises on purpose, so decide in Task 8 whether a build stops or skips. `pick_distributor` relies on Wikidata's
+  labels being sorted, which `wikidata.py` guarantees.
+- For Task 10: `clean.py` holds a local `CERTIFICATIONS`; use one definition.
+- `clean_amount` handles NaN, but `pd.NA` raises in `math.isnan`. Convert to plain floats or None before calling it.
