@@ -169,8 +169,8 @@ def test_cpi_file_has_1960_to_2026():
   - `SOURCE_TYPES = ("original", "novel", "comic", "true story", "remake", "video game", "play", "TV series", "manga")`.
   - `source_from_wikidata(based_on_types: set[str]) -> str | None` (Wikidata QIDs of the P144 target's P31 classes → category); `source_from_keywords(names: set[str]) -> str | None` using exactly: `based on novel or book`, `based on young adult novel` → novel; `based on comic`, `superhero` → comic; `based on true story`, `biography` → true story; `remake`, `live action remake` → remake; `based on video game` → video game; `based on play or musical` → play; `based on tv series` → TV series; `based on manga` → manga. `source_category(wd, keywords) -> str` = Wikidata first, then keywords, else `"original"`.
   - `awards.json`: `{family: [QIDs of the award items/classes]}` for `oscar`, `bafta_film`, `golden_globe`, `cannes`, `venice`, `berlin`, `sag` (QIDs looked up on wikidata.org and listed with their labels). `award_family(award_qid: str, parent_qids: set[str]) -> str | None`.
-- [ ] **Step 1: Failing tests:** keyword mapping table (each keyword above → its category), `test_wikidata_wins_over_keywords`, `test_no_signal_is_original`, `test_awards_json_has_seven_families_with_labels`, `test_award_family_matches_parent_class`.
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(data): source material and award families`.
+- [x] **Step 1: Failing tests:** keyword mapping table (each keyword above → its category), `test_wikidata_wins_over_keywords`, `test_no_signal_is_original`, `test_awards_json_has_seven_families_with_labels`, `test_award_family_matches_parent_class`.
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(data): source material and award families`.
 
 ### Task 6: Wikidata enrichment
 

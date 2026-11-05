@@ -1,7 +1,7 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-3 done; Task 4 done except its manual check. Next: Task 5 (source material and award families).
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-3 and 5 done; Task 4 done except its manual check. Next: Task 6 (Wikidata enrichment).
 - Task 4 still open, needs `TMDB_READ_TOKEN` in the environment or `.env`: Step 5, the `--limit 50` check against the live API
   (expect 50 lines minus missing, manifest unchanged; the plan's "manifest updated" was overruled, see Notes), and saving the
   trimmed real response `tests/fixtures/tmdb_movie_475557.json`. `TmdbClient` has only met hand-built responses so far.
@@ -17,6 +17,7 @@
 - 2026-11-05: Task 3 (resumable JSONL shards, manifest). 38 tests pass, ruff clean, code-reviewer and test-auditor run on Windows.
 - 2026-11-05: Task 4 (TMDB IDs, client, resumable pull, CLI), except Step 5 and the real fixture. 77 tests pass, ruff clean,
   code-reviewer and test-auditor run on Windows.
+- 2026-11-05: Task 5 (source categories, award families). Code-reviewer and test-auditor run on Windows.
 
 ## Open questions
 - `min_votes` for the score target: decided from the Phase 1 data report.
@@ -40,4 +41,10 @@
   real 404 records a film as missing, and that file is never rechecked; failures raise and the chunk resumes. A huge
   `Retry-After` is honoured in full. `tests/fixtures/tmdb_ids_sample.json.gz` mixes real export lines with hand-written ones,
   because the real export has no `adult: true` lines.
+- `llm_movies/data/awards.json` is a Wikidata snapshot from 2026-11-05 (171 items, no build script kept). It lists film categories
+  directly because Task 6 fetches no parent classes, so `award_family(qid, set())` matches on the item. The Golden Globes and
+  SAG root classes also cover TV, so passing real parent classes later would over-count; drop those roots if that ever happens.
+- Source categories are a best guess when Wikidata is vague: "literary work", "written work" and "book" map to novel, so a
+  non-fiction source or a musical typed that way reads as novel, and a sequel linked to a film by P144 reads as remake. Films based
+  on a character, a short or a documentary fall back to keywords. Check `source_material` in the Phase 1 data report.
 - For Task 7: `clean_amount` handles NaN, but `pd.NA` raises in `math.isnan`. Convert to plain floats or None before calling it.

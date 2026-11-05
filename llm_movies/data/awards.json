@@ -1,0 +1,700 @@
+{
+  "oscar": [
+    {
+      "qid": "Q137423654",
+      "label": "Academy Award for Achievement in Casting"
+    },
+    {
+      "qid": "Q103916",
+      "label": "Academy Award for Best Actor"
+    },
+    {
+      "qid": "Q103618",
+      "label": "Academy Award for Best Actress"
+    },
+    {
+      "qid": "Q106800",
+      "label": "Academy Award for Best Animated Feature"
+    },
+    {
+      "qid": "Q917808",
+      "label": "Academy Award for Best Animated Short Film"
+    },
+    {
+      "qid": "Q22253133",
+      "label": "Academy Award for Best Art Direction, Black and White"
+    },
+    {
+      "qid": "Q22253131",
+      "label": "Academy Award for Best Art Direction, Color"
+    },
+    {
+      "qid": "Q501004",
+      "label": "Academy Award for Best Assistant Director"
+    },
+    {
+      "qid": "Q131520",
+      "label": "Academy Award for Best Cinematography"
+    },
+    {
+      "qid": "Q21995139",
+      "label": "Academy Award for Best Cinematography, Black-and-White"
+    },
+    {
+      "qid": "Q21995136",
+      "label": "Academy Award for Best Cinematography, Color"
+    },
+    {
+      "qid": "Q277536",
+      "label": "Academy Award for Best Costume Design"
+    },
+    {
+      "qid": "Q22120095",
+      "label": "Academy Award for Best Costume Design, Black-and-White"
+    },
+    {
+      "qid": "Q22120066",
+      "label": "Academy Award for Best Costume Design, Color"
+    },
+    {
+      "qid": "Q498690",
+      "label": "Academy Award for Best Dance Direction"
+    },
+    {
+      "qid": "Q103360",
+      "label": "Academy Award for Best Director"
+    },
+    {
+      "qid": "Q3451157",
+      "label": "Academy Award for Best Director (Comedy Picture)"
+    },
+    {
+      "qid": "Q21995338",
+      "label": "Academy Award for Best Director (Dramatic Picture)"
+    },
+    {
+      "qid": "Q1425151",
+      "label": "Academy Award for Best Documentary (Short Subject)"
+    },
+    {
+      "qid": "Q111332",
+      "label": "Academy Award for Best Documentary Feature Film"
+    },
+    {
+      "qid": "Q3886463",
+      "label": "Academy Award for Best Engineering Effects"
+    },
+    {
+      "qid": "Q281939",
+      "label": "Academy Award for Best Film Editing"
+    },
+    {
+      "qid": "Q105304",
+      "label": "Academy Award for Best International Feature Film"
+    },
+    {
+      "qid": "Q1324407",
+      "label": "Academy Award for Best Live Action Short Film"
+    },
+    {
+      "qid": "Q3886465",
+      "label": "Academy Award for Best Live Action Short Film, Color"
+    },
+    {
+      "qid": "Q3886464",
+      "label": "Academy Award for Best Live Action Short Film, Comedy"
+    },
+    {
+      "qid": "Q22335251",
+      "label": "Academy Award for Best Live Action Short Film, One-Reel"
+    },
+    {
+      "qid": "Q487136",
+      "label": "Academy Award for Best Makeup and Hairstyling"
+    },
+    {
+      "qid": "Q22235329",
+      "label": "Academy Award for Best Original Dramatic Score"
+    },
+    {
+      "qid": "Q22752868",
+      "label": "Academy Award for Best Original Dramatic or Comedy Score"
+    },
+    {
+      "qid": "Q4671338",
+      "label": "Academy Award for Best Original Musical Score"
+    },
+    {
+      "qid": "Q22235305",
+      "label": "Academy Award for Best Original Musical or Comedy Score"
+    },
+    {
+      "qid": "Q488651",
+      "label": "Academy Award for Best Original Score"
+    },
+    {
+      "qid": "Q22752734",
+      "label": "Academy Award for Best Original Score, no Musical"
+    },
+    {
+      "qid": "Q112243",
+      "label": "Academy Award for Best Original Song"
+    },
+    {
+      "qid": "Q22344608",
+      "label": "Academy Award for Best Original Song Score"
+    },
+    {
+      "qid": "Q102427",
+      "label": "Academy Award for Best Picture"
+    },
+    {
+      "qid": "Q277751",
+      "label": "Academy Award for Best Production Design"
+    },
+    {
+      "qid": "Q22752811",
+      "label": "Academy Award for Best Score, Adaptation or Treatment"
+    },
+    {
+      "qid": "Q2297175",
+      "label": "Academy Award for Best Short Subject, Novelty"
+    },
+    {
+      "qid": "Q1401974",
+      "label": "Academy Award for Best Short Subject, Two-reel"
+    },
+    {
+      "qid": "Q830079",
+      "label": "Academy Award for Best Sound"
+    },
+    {
+      "qid": "Q488645",
+      "label": "Academy Award for Best Sound Editing"
+    },
+    {
+      "qid": "Q22917729",
+      "label": "Academy Award for Best Special Effects"
+    },
+    {
+      "qid": "Q504298",
+      "label": "Academy Award for Best Story"
+    },
+    {
+      "qid": "Q106291",
+      "label": "Academy Award for Best Supporting Actor"
+    },
+    {
+      "qid": "Q106301",
+      "label": "Academy Award for Best Supporting Actress"
+    },
+    {
+      "qid": "Q3886486",
+      "label": "Academy Award for Best Title Writing"
+    },
+    {
+      "qid": "Q31193514",
+      "label": "Academy Award for Best Unique and Artistic Picture"
+    },
+    {
+      "qid": "Q393686",
+      "label": "Academy Award for Best Visual Effects"
+    },
+    {
+      "qid": "Q22117120",
+      "label": "Academy Award for Best Writing"
+    },
+    {
+      "qid": "Q107258",
+      "label": "Academy Award for Best Writing, Adapted Screenplay"
+    },
+    {
+      "qid": "Q41417",
+      "label": "Academy Award for Best Writing, Original Screenplay"
+    },
+    {
+      "qid": "Q3298549",
+      "label": "Academy Award for Unique and Artistic Production"
+    },
+    {
+      "qid": "Q8624",
+      "label": "Academy Award of Merit"
+    },
+    {
+      "qid": "Q19020",
+      "label": "Academy Awards"
+    },
+    {
+      "qid": "Q727328",
+      "label": "Academy Honorary Award"
+    },
+    {
+      "qid": "Q489705",
+      "label": "Academy Juvenile Award"
+    },
+    {
+      "qid": "Q844273",
+      "label": "Irving G. Thalberg Memorial Award"
+    },
+    {
+      "qid": "Q2032630",
+      "label": "Special Achievement Academy Award"
+    }
+  ],
+  "bafta_film": [
+    {
+      "qid": "Q2870736",
+      "label": "Audience Award (BAFTA)"
+    },
+    {
+      "qid": "Q400007",
+      "label": "BAFTA Award for Best Actor in a Leading Role"
+    },
+    {
+      "qid": "Q548389",
+      "label": "BAFTA Award for Best Actor in a Supporting Role"
+    },
+    {
+      "qid": "Q687123",
+      "label": "BAFTA Award for Best Actress in a Leading Role"
+    },
+    {
+      "qid": "Q787123",
+      "label": "BAFTA Award for Best Actress in a Supporting Role"
+    },
+    {
+      "qid": "Q739694",
+      "label": "BAFTA Award for Best Adapted Screenplay"
+    },
+    {
+      "qid": "Q240201",
+      "label": "BAFTA Award for Best Animated Film"
+    },
+    {
+      "qid": "Q2663714",
+      "label": "BAFTA Award for Best British Film"
+    },
+    {
+      "qid": "Q787065",
+      "label": "BAFTA Award for Best British Screenplay"
+    },
+    {
+      "qid": "Q84567890",
+      "label": "BAFTA Award for Best Casting"
+    },
+    {
+      "qid": "Q133252175",
+      "label": "BAFTA Award for Best Children's & Family Film"
+    },
+    {
+      "qid": "Q778870",
+      "label": "BAFTA Award for Best Cinematography"
+    },
+    {
+      "qid": "Q787104",
+      "label": "BAFTA Award for Best Costume Design"
+    },
+    {
+      "qid": "Q787131",
+      "label": "BAFTA Award for Best Direction"
+    },
+    {
+      "qid": "Q511553",
+      "label": "BAFTA Award for Best Documentary"
+    },
+    {
+      "qid": "Q787145",
+      "label": "BAFTA Award for Best Editing"
+    },
+    {
+      "qid": "Q139184",
+      "label": "BAFTA Award for Best Film"
+    },
+    {
+      "qid": "Q2925687",
+      "label": "BAFTA Award for Best Film Not in the English Language"
+    },
+    {
+      "qid": "Q114267430",
+      "label": "BAFTA Award for Best Foreign Actor"
+    },
+    {
+      "qid": "Q21162336",
+      "label": "BAFTA Award for Best Foreign Actress"
+    },
+    {
+      "qid": "Q918617",
+      "label": "BAFTA Award for Best Makeup and Hair"
+    },
+    {
+      "qid": "Q569979",
+      "label": "BAFTA Award for Best Newcomer"
+    },
+    {
+      "qid": "Q787098",
+      "label": "BAFTA Award for Best Original Music"
+    },
+    {
+      "qid": "Q41375",
+      "label": "BAFTA Award for Best Original Screenplay"
+    },
+    {
+      "qid": "Q2925679",
+      "label": "BAFTA Award for Best Original Song"
+    },
+    {
+      "qid": "Q508166",
+      "label": "BAFTA Award for Best Production Design"
+    },
+    {
+      "qid": "Q787089",
+      "label": "BAFTA Award for Best Screenplay"
+    },
+    {
+      "qid": "Q4834542",
+      "label": "BAFTA Award for Best Short Animation"
+    },
+    {
+      "qid": "Q338757",
+      "label": "BAFTA Award for Best Short Film"
+    },
+    {
+      "qid": "Q141142497",
+      "label": "BAFTA Award for Best Single Documentary"
+    },
+    {
+      "qid": "Q739633",
+      "label": "BAFTA Award for Best Sound"
+    },
+    {
+      "qid": "Q787127",
+      "label": "BAFTA Award for Best Special Visual Effects"
+    },
+    {
+      "qid": "Q4834543",
+      "label": "BAFTA Award for Most Promising Newcomer to Leading Film Roles"
+    },
+    {
+      "qid": "Q4834546",
+      "label": "BAFTA Outstanding British Contribution to Cinema Award"
+    },
+    {
+      "qid": "Q918660",
+      "label": "BAFTA Rising Star Award"
+    },
+    {
+      "qid": "Q24042414",
+      "label": "BAFTA award for best production design - Black and White"
+    },
+    {
+      "qid": "Q24042413",
+      "label": "BAFTA award for best production design - colour"
+    },
+    {
+      "qid": "Q2925683",
+      "label": "British Academy Film Award for Best Specialist Film"
+    },
+    {
+      "qid": "Q732997",
+      "label": "British Academy Film Awards"
+    }
+  ],
+  "golden_globe": [
+    {
+      "qid": "Q593098",
+      "label": "Golden Globe Award for Best Actor – Motion Picture Drama"
+    },
+    {
+      "qid": "Q181883",
+      "label": "Golden Globe Award for Best Actor – Motion Picture Musical or Comedy"
+    },
+    {
+      "qid": "Q1011564",
+      "label": "Golden Globe Award for Best Actress in a Motion Picture – Musical or Comedy"
+    },
+    {
+      "qid": "Q463085",
+      "label": "Golden Globe Award for Best Actress – Motion Picture Drama"
+    },
+    {
+      "qid": "Q878902",
+      "label": "Golden Globe Award for Best Animated Feature Film"
+    },
+    {
+      "qid": "Q3772974",
+      "label": "Golden Globe Award for Best Cinematography"
+    },
+    {
+      "qid": "Q586356",
+      "label": "Golden Globe Award for Best Director"
+    },
+    {
+      "qid": "Q1534897",
+      "label": "Golden Globe Award for Best Documentary Film"
+    },
+    {
+      "qid": "Q2856444",
+      "label": "Golden Globe Award for Best English-Language Foreign Film"
+    },
+    {
+      "qid": "Q3772959",
+      "label": "Golden Globe Award for Best Film Promoting International Understanding"
+    },
+    {
+      "qid": "Q3110063",
+      "label": "Golden Globe Award for Best Motion Picture"
+    },
+    {
+      "qid": "Q1011509",
+      "label": "Golden Globe Award for Best Motion Picture – Drama"
+    },
+    {
+      "qid": "Q670282",
+      "label": "Golden Globe Award for Best Motion Picture – Musical or Comedy"
+    },
+    {
+      "qid": "Q387380",
+      "label": "Golden Globe Award for Best Non-English Language Film"
+    },
+    {
+      "qid": "Q1422140",
+      "label": "Golden Globe Award for Best Original Score"
+    },
+    {
+      "qid": "Q1472235",
+      "label": "Golden Globe Award for Best Original Song"
+    },
+    {
+      "qid": "Q849124",
+      "label": "Golden Globe Award for Best Screenplay"
+    },
+    {
+      "qid": "Q723830",
+      "label": "Golden Globe Award for Best Supporting Actor – Motion Picture"
+    },
+    {
+      "qid": "Q822907",
+      "label": "Golden Globe Award for Best Supporting Actress – Motion Picture"
+    },
+    {
+      "qid": "Q1534906",
+      "label": "Golden Globe Award for New Star of the Year – Actor"
+    },
+    {
+      "qid": "Q1291221",
+      "label": "Golden Globe Award for New Star of the Year – Actress"
+    },
+    {
+      "qid": "Q640353",
+      "label": "Golden Globe Cecil B. DeMille Award"
+    },
+    {
+      "qid": "Q3110055",
+      "label": "Golden Globe Special Award – Juvenile Performance"
+    },
+    {
+      "qid": "Q3110053",
+      "label": "Golden Globe for best actress"
+    },
+    {
+      "qid": "Q1011547",
+      "label": "Golden Globes"
+    },
+    {
+      "qid": "Q1534911",
+      "label": "Henrietta Award"
+    },
+    {
+      "qid": "Q3946618",
+      "label": "Samuel Goldwyn International Award"
+    }
+  ],
+  "cannes": [
+    {
+      "qid": "Q978420",
+      "label": "Best Screenplay Award"
+    },
+    {
+      "qid": "Q510175",
+      "label": "Cannes Best Director Award"
+    },
+    {
+      "qid": "Q586140",
+      "label": "Cannes Film Festival Award for Best Actor"
+    },
+    {
+      "qid": "Q840286",
+      "label": "Cannes Film Festival Award for Best Actress"
+    },
+    {
+      "qid": "Q57376112",
+      "label": "Cannes Film Festival Award for Best Actress in a Supporting Role"
+    },
+    {
+      "qid": "Q844804",
+      "label": "Cannes Film Festival Grand Prix"
+    },
+    {
+      "qid": "Q164200",
+      "label": "Jury Prize"
+    },
+    {
+      "qid": "Q179808",
+      "label": "Palme d'Or"
+    },
+    {
+      "qid": "Q56315170",
+      "label": "Special Jury Prize"
+    }
+  ],
+  "venice": [
+    {
+      "qid": "Q3405119",
+      "label": "Best Screenplay Award (Venice Film Festival)"
+    },
+    {
+      "qid": "Q209459",
+      "label": "Golden Lion"
+    },
+    {
+      "qid": "Q1444982",
+      "label": "Golden Osella"
+    },
+    {
+      "qid": "Q2503383",
+      "label": "Golden Osella for Outstanding Technical Contribution"
+    },
+    {
+      "qid": "Q944480",
+      "label": "Grand Jury Prize of the Venice Film Festival"
+    },
+    {
+      "qid": "Q1060024",
+      "label": "Marcello Mastroianni Award"
+    },
+    {
+      "qid": "Q1337827",
+      "label": "Silver Lion"
+    },
+    {
+      "qid": "Q3830565",
+      "label": "Silver Lion for Revelation"
+    },
+    {
+      "qid": "Q20001886",
+      "label": "Special Jury Prize"
+    },
+    {
+      "qid": "Q49025",
+      "label": "Volpi Cup"
+    },
+    {
+      "qid": "Q2089923",
+      "label": "Volpi Cup for Best Actor"
+    },
+    {
+      "qid": "Q2089918",
+      "label": "Volpi Cup for Best Actress"
+    }
+  ],
+  "berlin": [
+    {
+      "qid": "Q21426586",
+      "label": "Extraordinary Silver Bear"
+    },
+    {
+      "qid": "Q154590",
+      "label": "Golden Bear"
+    },
+    {
+      "qid": "Q708135",
+      "label": "Silver Bear"
+    },
+    {
+      "qid": "Q664212",
+      "label": "Silver Bear Grand Jury Prize"
+    },
+    {
+      "qid": "Q105786956",
+      "label": "Silver Bear Jury Prize"
+    },
+    {
+      "qid": "Q321207",
+      "label": "Silver Bear Jury Prize"
+    },
+    {
+      "qid": "Q819973",
+      "label": "Silver Bear for Best Actor"
+    },
+    {
+      "qid": "Q376834",
+      "label": "Silver Bear for Best Actress"
+    },
+    {
+      "qid": "Q706031",
+      "label": "Silver Bear for Best Director"
+    },
+    {
+      "qid": "Q110961984",
+      "label": "Silver Bear for Best Leading Performance"
+    },
+    {
+      "qid": "Q2285851",
+      "label": "Silver Bear for Best Screenplay"
+    },
+    {
+      "qid": "Q110961983",
+      "label": "Silver Bear for Best Supporting Performance"
+    },
+    {
+      "qid": "Q1266608",
+      "label": "Silver Bear for Outstanding Artistic Contribution"
+    },
+    {
+      "qid": "Q109796991",
+      "label": "Silver Bear for an outstanding artistic contribution"
+    },
+    {
+      "qid": "Q3886190",
+      "label": "Silver Bear for an outstanding single achievement"
+    },
+    {
+      "qid": "Q2285858",
+      "label": "Silver Bear for best original music"
+    }
+  ],
+  "sag": [
+    {
+      "qid": "Q518675",
+      "label": "Actor Award for Outstanding Performance by a Cast in a Motion Picture"
+    },
+    {
+      "qid": "Q268200",
+      "label": "Actor Awards"
+    },
+    {
+      "qid": "Q1631998",
+      "label": "SAG-AFTRA Life Achievement Award"
+    },
+    {
+      "qid": "Q1129487",
+      "label": "Screen Actors Guild Award for Outstanding Performance by a Female Actor in a Leading Role"
+    },
+    {
+      "qid": "Q1320315",
+      "label": "Screen Actors Guild Award for Outstanding Performance by a Female Actor in a Supporting Role"
+    },
+    {
+      "qid": "Q654620",
+      "label": "Screen Actors Guild Award for Outstanding Performance by a Male Actor in a Leading Role"
+    },
+    {
+      "qid": "Q1260789",
+      "label": "Screen Actors Guild Award for Outstanding Performance by a Male Actor in a Supporting Role"
+    },
+    {
+      "qid": "Q2665874",
+      "label": "Screen Actors Guild Award for Outstanding Performance by a Stunt Ensemble in a Motion Picture"
+    }
+  ]
+}
