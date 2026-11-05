@@ -1,11 +1,7 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-3 and 5-7 done; Task 4 done except its manual check. Next: Task 8 (SQLite build).
-- Task 4 still open, needs `TMDB_READ_TOKEN` in the environment or `.env`: Step 5, the `--limit 50` check against the live API
-  (expect 50 lines minus missing, manifest unchanged; the plan's "manifest updated" was overruled, see Notes), and saving the
-  trimmed real response `tests/fixtures/tmdb_movie_475557.json`. `TmdbClient` has only met hand-built responses so far.
-  Task 8's mini fixtures also come from real responses, so the token is needed by then at the latest.
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-7 done. Next: Task 8 (SQLite build).
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
 - Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at fed3002; its CI run passed
   (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42027850257).
@@ -23,6 +19,9 @@
   test-auditor run on Windows.
 - 2026-11-05: Task 7 (cleaning rules). Code-reviewer and test-auditor run on Windows. `clean.py` was written before its tests,
   and RED was recorded by moving it aside; the audit found the tests were not shaped to the code.
+- 2026-11-05: Task 4 finished with a token: live `--limit 50` check passed (50 pulled, 0 missing, manifest unchanged, rerun added
+  nothing), real Joker fixture saved. `clean_movie` ran on 150 real films with no crash or shape mismatch, which led to the two
+  rule changes in Notes.
 
 ## Open questions
 - `min_votes` for the score target: decided from the Phase 1 data report.
@@ -59,6 +58,13 @@
 - Cleaning overrules the plan in two places. `distributor` is the family name from a table of majors in `clean.py` (Joker gives
   "Warner Bros."; 81% of the 952 sampled Wikidata films resolve to one), retail storefronts are dropped by exact name, and the
   first sorted label is only the fallback. CPI always uses the release year, because Wikidata figures are often undated.
+- Real data changed two more cleaning rules. `festival-first` needs the premiere at least 30 days before the first theatrical date
+  (`FESTIVAL_GAP_DAYS`): TMDB counts red-carpet premieres, so the plan's rule read 46% of popular films as festival-first (12% of
+  150 real films now). A streamer counts as distributor only on a streaming-only, limited or festival-first film from its start
+  year on, because Wikidata lists later rights (Inception read Netflix; Fight Club read Disney+, a time-travel leak).
+- Distributor is still weak, so check it in the Phase 1 data report: None on 32% of popular films and 80% of old ones, and with only
+  regional labels on Wikidata a Hollywood film reads a regional name (Inception reads InterCom). SkyShowtime and a bare
+  "Prime Video" are not gated as streamers. `FilmFacts.from_dict(None)` raises, so skip `facts: null` records.
 - For Task 8 and later: `revenue_2025` can be set on a film not yet 182 days old or not yet released, so training filters must
   use `revenue_incomplete`. Pre-1960 films keep their row but have no money, since the CPI file starts in 1960. A missing
   top-level `id` raises on purpose, so decide in Task 8 whether a build stops or skips. `pick_distributor` relies on Wikidata's

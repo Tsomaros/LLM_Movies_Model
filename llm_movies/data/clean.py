@@ -16,6 +16,26 @@ CERTIFICATIONS = ("G", "PG", "PG-13", "R", "NC-17")
 
 # Release types in TMDB's release_dates: 1 premiere, 2 theatrical (limited), 3 theatrical, 4 digital, 5 physical, 6 TV.
 _PREMIERE, _LIMITED, _WIDE = 1, 2, 3
+
+# TMDB type 1 also covers red-carpet premieres days before opening, so a premiere counts as a festival debut only
+# when it is at least this many days before the first theatrical date.
+FESTIVAL_GAP_DAYS = 30
+
+# Streaming families and the year each service launched (Wikipedia: Netflix streaming 16 Jan 2007, Amazon Unbox
+# 7 Sep 2006, Hulu 29 Oct 2007, Disney+ 12 Nov 2019, Apple TV+ 1 Nov 2019, HBO Max 27 May 2020, Paramount+ 4 Mar
+# 2021, Starz 1 Feb 1994). Wikidata lists these for later streaming rights, so a label only counts for a film that
+# was released that way and no earlier than the launch.
+STREAMER_START_YEARS = {
+    "Netflix": 2007,
+    "Disney+": 2019,
+    "HBO Max": 2020,
+    "Amazon Prime Video": 2006,
+    "Paramount+": 2021,
+    "Apple TV": 2019,
+    "Hulu": 2007,
+    "Starz": 1994,
+}
+_STREAMER_RELEASE_TYPES = {"streaming-only", "limited", "festival-first"}
 _STREAMING_TYPES = {4, 5, 6}
 
 # Distributor families, in priority order: the first family with any matching label wins and gives its canonical
@@ -123,17 +143,29 @@ def _parse_date(value) -> date | None:
         return None
 
 
-def pick_distributor(labels: list[str]) -> str | None:
-    """The canonical name of the first major family with a matching label, else the first sorted label, else None."""
-    labels = [
-        label
-        for label in labels or []
-        if isinstance(label, str) and label.strip() and label.strip().lower() not in STOREFRONTS
-    ]
+def pick_distributor(labels: list[str], release_type: str | None, year: int | None) -> str | None:
+    """The canonical name of the first major family with a matching label, else the first sorted label, else None.
+    Storefronts are dropped first; a streamer label is dropped unless the film was released as streaming-only,
+    limited or festival-first and in or after the service's launch year."""
+    kept = []
+    for label in labels or []:
+        if not isinstance(label, str) or not label.strip() or label.strip().lower() in STOREFRONTS:
+            continue
+        if _streamer_of(label) is not None and not _streamer_counts(_streamer_of(label), release_type, year):
+            continue
+        kept.append(label)
     for name, pattern in _FAMILY_PATTERNS:
-        if any(pattern.match(label.strip()) for label in labels):
+        if any(pattern.match(label.strip()) for label in kept):
             return name
-    return labels[0] if labels else None
+    return kept[0] if kept else None
+
+
+def _streamer_of(label: str) -> str | None:
+    return next((n for n, p in _FAMILY_PATTERNS if n in STREAMER_START_YEARS and p.match(label.strip())), None)
+
+
+def _streamer_counts(streamer: str, release_type: str | None, year: int | None) -> bool:
+    return release_type in _STREAMER_RELEASE_TYPES and year is not None and year >= STREAMER_START_YEARS[streamer]
 
 
 def _release_entries(raw: dict) -> dict[str, list[tuple[date, int, str]]]:
@@ -167,7 +199,7 @@ def release_type(entries: list[tuple[date, int, str]]) -> str | None:
     kinds = {k for _, k, _ in entries}
     theatrical = [d for d, k, _ in entries if k in (_LIMITED, _WIDE)]
     premieres = [d for d, k, _ in entries if k == _PREMIERE]
-    if theatrical and premieres and min(premieres) < min(theatrical):
+    if theatrical and premieres and (min(theatrical) - min(premieres)).days >= FESTIVAL_GAP_DAYS:
         return "festival-first"
     if _WIDE in kinds:
         return "wide"
@@ -208,6 +240,7 @@ def clean_movie(raw: dict, wd: FilmFacts | None, cpi: dict, fx: dict, pulled_at:
 
     by_country = _release_entries(raw)
     keywords = _names(_dict(raw.get("keywords")).get("keywords"), "name")
+    kind = release_type(_chosen_country(by_country))
     runtime = raw.get("runtime")
     collection = _dict(raw.get("belongs_to_collection")).get("id")
     return MovieRow(
@@ -233,8 +266,8 @@ def clean_movie(raw: dict, wd: FilmFacts | None, cpi: dict, fx: dict, pulled_at:
         revenue_incomplete=(pulled_at - released).days < INCOMPLETE_DAYS,
         vote_count=raw.get("vote_count"),
         vote_average=raw.get("vote_average"),
-        release_type=release_type(_chosen_country(by_country)),
+        release_type=kind,
         source_material=source_category(wd.source_types if wd else set(), set(keywords)),
-        distributor=pick_distributor(wd.distributors if wd else []),
+        distributor=pick_distributor(wd.distributors if wd else [], kind, released.year),
         wd_qid=wd.qid if wd else None,
     )

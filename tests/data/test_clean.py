@@ -1,9 +1,18 @@
+import json
 from dataclasses import fields
 from datetime import date, timedelta
+from pathlib import Path
 
 import pytest
 
-from llm_movies.data.clean import LOW_RATIO, MovieRow, clean_movie, pick_distributor
+from llm_movies.data.clean import (
+    FESTIVAL_GAP_DAYS,
+    LOW_RATIO,
+    STREAMER_START_YEARS,
+    MovieRow,
+    clean_movie,
+    pick_distributor,
+)
 from llm_movies.data.wikidata import FilmFacts, Money
 
 CPI = {2000: 50.0, 2001: 80.0, 2025: 100.0}  # 2000 dollars x 2 = 2025 dollars
@@ -235,6 +244,103 @@ def test_release_after_pulled_at_is_incomplete():
     assert clean(pulled_at=date(1998, 12, 1)).revenue_incomplete is True
 
 
+# ---- festival gap ----
+
+
+def test_festival_gap_boundary():
+    assert FESTIVAL_GAP_DAYS == 30
+    thirty = with_dates(country("US", rd(1, "2000-05-02"), rd(3, "2000-06-01")))
+    twenty_nine = with_dates(country("US", rd(1, "2000-05-03"), rd(3, "2000-06-01")))
+    assert clean(thirty).release_type == "festival-first"
+    assert clean(twenty_nine).release_type == "wide"
+
+
+def test_festival_gap_below_threshold_falls_through_to_limited():
+    short = with_dates(country("US", rd(1, "2000-05-20"), rd(2, "2000-06-01")))
+    assert clean(short).release_type == "limited"
+
+
+def test_gap_runs_from_the_earliest_premiere():
+    # a festival debut on 1 March, then a red-carpet premiere a week before opening: 92 days from the earliest
+    film = with_dates(country("US", rd(1, "2000-03-01"), rd(1, "2000-05-25"), rd(3, "2000-06-01")))
+    assert clean(film).release_type == "festival-first"
+
+
+def test_gap_runs_to_the_first_theatrical_date():
+    # premiere 1 May, limited opening 10 May (9 days), wide expansion 15 July (75 days): the first opening counts
+    film = with_dates(country("US", rd(1, "2000-05-01"), rd(2, "2000-05-10"), rd(3, "2000-07-15")))
+    assert clean(film).release_type == "wide"
+
+
+def test_true_festival_film_stays_festival_first():
+    # Cannes in May, wide release in October: a gap of well over 30 days
+    film = with_dates(country("US", rd(1, "2000-05-15"), rd(2, "2000-09-01"), rd(3, "2000-10-06")))
+    assert clean(film).release_type == "festival-first"
+
+
+# ---- streamer labels ----
+
+
+def streamer_film(label_year: int, results: list[dict], distributors: list[str]) -> MovieRow:
+    raw = raw_film(release_date=f"{label_year}-06-01", release_dates={"results": results})
+    return clean(raw, facts(distributors=distributors), cpi={label_year: 90.0, 2025: 100.0})
+
+
+@pytest.mark.parametrize(
+    "dates",
+    [
+        [rd(4, "2022-06-01")],  # streaming-only
+        [rd(2, "2022-06-01")],  # limited
+        [rd(1, "2022-01-01"), rd(2, "2022-06-01")],  # festival-first
+    ],
+)
+def test_streamer_kept_for_streaming_limited_festival_films(dates):
+    assert streamer_film(2022, [country("US", *dates)], ["Netflix"]).distributor == "Netflix"
+
+
+def test_streamer_dropped_on_wide_film():
+    row = streamer_film(2022, [country("US", rd(3, "2022-06-01"))], ["Netflix"])
+    assert (row.release_type, row.distributor) == ("wide", None)
+
+
+def test_streamer_dropped_without_release_type():
+    assert streamer_film(2022, [], ["Netflix"]).distributor is None
+
+
+def test_streamer_dropped_before_its_start_year_even_when_streaming_only():
+    # Disney+ launched in November 2019: a 2018 film cannot have been released there (Fight Club in the real data)
+    row = streamer_film(2018, [country("US", rd(4, "2018-06-01"))], ["Disney+"])
+    assert (row.release_type, row.distributor) == ("streaming-only", None)
+
+
+def test_streamer_kept_in_its_start_year():
+    row = streamer_film(2019, [country("US", rd(4, "2019-06-01"))], ["Disney+"])
+    assert row.distributor == "Disney+"
+
+
+def test_wide_film_with_streamer_and_studio_gives_studio():
+    row = streamer_film(2022, [country("US", rd(3, "2022-06-01"))], ["Netflix", "Warner Bros. Pictures"])
+    assert row.distributor == "Warner Bros."
+
+
+def test_streamer_dropped_falls_to_other_labels():
+    row = streamer_film(2022, [country("US", rd(3, "2022-06-01"))], ["InterCom", "Netflix"])
+    assert row.distributor == "InterCom"
+
+
+def test_streamer_start_years_are_set_for_every_streamer_family():
+    assert STREAMER_START_YEARS == {
+        "Netflix": 2007,
+        "Disney+": 2019,
+        "HBO Max": 2020,
+        "Amazon Prime Video": 2006,
+        "Paramount+": 2021,
+        "Apple TV": 2019,
+        "Hulu": 2007,
+        "Starz": 1994,
+    }
+
+
 # ---- distributor ----
 
 
@@ -278,14 +384,14 @@ def test_release_after_pulled_at_is_incomplete():
     ],
 )
 def test_distributor_table(labels, expected):
-    assert pick_distributor(labels) == expected
+    assert pick_distributor(labels, "streaming-only", 2022) == expected  # a context where streamer labels count
 
 
 def test_blocklist_runs_before_the_major_table(monkeypatch):
     # no real storefront matches a family, so make one that would: a blocked name must never reach the table
     monkeypatch.setattr("llm_movies.data.clean.STOREFRONTS", frozenset({"netflix"}))
-    assert pick_distributor(["Netflix"]) is None
-    assert pick_distributor(["Netflix", "InterCom"]) == "InterCom"
+    assert pick_distributor(["Netflix"], "streaming-only", 2022) is None
+    assert pick_distributor(["Netflix", "InterCom"], "streaming-only", 2022) == "InterCom"
 
 
 def test_distributor_comes_from_wikidata_facts():
@@ -387,3 +493,33 @@ def test_certification_ignores_other_countries():
 )
 def test_certification_mapping(value, expected):
     assert clean(with_dates(country("US", rd(3, "2000-06-01", value)))).certification == expected
+
+
+# ---- a real TMDB response ----
+
+
+def test_real_joker_response():
+    raw = json.loads((Path(__file__).parents[1] / "fixtures" / "tmdb_movie_475557.json").read_text(encoding="utf-8"))
+    assert (raw["budget"], raw["revenue"]) == (55_000_000, 1_078_958_629)  # the working below uses these raw values
+    wd = facts(qid="Q60", distributors=["Warner Bros. Entertainment"])
+    cpi = {2019: 80.0, 2025: 100.0}  # 2019 dollars x 1.25 = 2025 dollars
+    row = clean_movie(raw, wd, cpi, {}, date(2026, 1, 1))
+    assert row is not None
+
+    assert (row.tmdb_id, row.title, row.release_date) == (475557, "Joker", date(2019, 10, 1))
+    assert (row.year, row.month, row.day) == (2019, 10, 1)
+    assert (row.language, row.certification, row.genres) == ("en", "R", ["Crime", "Thriller", "Drama"])
+    assert row.collection_id == 987044
+    assert (row.distributor, row.wd_qid) == ("Warner Bros.", "Q60")
+
+    # By hand, CPI 2025 / CPI 2019 = 100 / 80 = 1.25:
+    #   budget  55,000,000 x 1.25 =    68,750,000
+    #   revenue 1,078,958,629 x 1.25 = 1,348,698,286.25
+    assert row.budget_2025 == pytest.approx(68_750_000)
+    assert row.revenue_2025 == pytest.approx(1_348_698_286.25)
+    assert (row.revenue_source, row.money_suspect, row.revenue_incomplete) == ("tmdb", False, False)
+
+    # US entries: a type 1 premiere on 2019-09-28 (note "Hollywood, California") and the type 3 wide release on
+    # 2019-10-04, a gap of 6 days. That is below FESTIVAL_GAP_DAYS (30), so it is a red-carpet premiere, not a
+    # festival debut, and the film reads "wide".
+    assert row.release_type == "wide"

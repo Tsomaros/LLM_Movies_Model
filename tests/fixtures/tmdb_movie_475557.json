@@ -1,0 +1,507 @@
+{
+  "adult": false,
+  "backdrop_path": "/rlay2M5QYvi6igbGcFjq8jxeusY.jpg",
+  "belongs_to_collection": {
+    "id": 987044,
+    "name": "Joker Collection",
+    "poster_path": "/cI4Ng3oX0CEJiY3wMxcfszQZbcI.jpg",
+    "backdrop_path": "/k1YC7mFLvxX4bbD7P8lkcML0Jek.jpg"
+  },
+  "budget": 55000000,
+  "genres": [
+    {
+      "id": 80,
+      "name": "Crime"
+    },
+    {
+      "id": 53,
+      "name": "Thriller"
+    },
+    {
+      "id": 18,
+      "name": "Drama"
+    }
+  ],
+  "homepage": "http://www.jokermovie.net/",
+  "id": 475557,
+  "imdb_id": "tt7286456",
+  "origin_country": [
+    "US"
+  ],
+  "original_language": "en",
+  "original_title": "Joker",
+  "overview": "During the 1980s, a failed stand-up comedian is driven insane and turns to a life of crime and chaos in Gotham City while becoming an infamous psychopathic crime figure.",
+  "popularity": 28.3451,
+  "poster_path": "/udDclJoHjfjb8Ekgsd4FDteOkCU.jpg",
+  "production_companies": [
+    {
+      "id": 174,
+      "logo_path": "/zhD3hhtKB5qyv7ZeL4uLpNxgMVU.png",
+      "name": "Warner Bros. Pictures",
+      "origin_country": "US"
+    },
+    {
+      "id": 83036,
+      "logo_path": null,
+      "name": "Joint Effort",
+      "origin_country": "US"
+    },
+    {
+      "id": 79,
+      "logo_path": "/at4uYdwAAgNRKhZuuFX8ShKSybw.png",
+      "name": "Village Roadshow Pictures",
+      "origin_country": "US"
+    },
+    {
+      "id": 13240,
+      "logo_path": "/aTc07YaNHo8WNgkQSnvLmG6w4nW.png",
+      "name": "Bron Studios",
+      "origin_country": "CA"
+    },
+    {
+      "id": 128064,
+      "logo_path": "/13F3Jf7EFAcREU0xzZqJnVnyGXu.png",
+      "name": "DC Films",
+      "origin_country": "US"
+    }
+  ],
+  "production_countries": [
+    {
+      "iso_3166_1": "CA",
+      "name": "Canada"
+    },
+    {
+      "iso_3166_1": "US",
+      "name": "United States of America"
+    }
+  ],
+  "release_date": "2019-10-01",
+  "revenue": 1078958629,
+  "runtime": 122,
+  "softcore": false,
+  "spoken_languages": [
+    {
+      "english_name": "English",
+      "iso_639_1": "en",
+      "name": "English"
+    }
+  ],
+  "status": "Released",
+  "tagline": "Put on a happy face.",
+  "title": "Joker",
+  "video": false,
+  "vote_average": 8.114,
+  "vote_count": 28645,
+  "credits": {
+    "cast": [
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 73421,
+        "known_for_department": "Acting",
+        "name": "Joaquin Phoenix",
+        "original_name": "Joaquin Phoenix",
+        "popularity": 3.7452,
+        "profile_path": "/u38k3hQBDwNX0VA22aQceDp9Iyv.jpg",
+        "cast_id": 357,
+        "character": "Arthur Fleck",
+        "credit_id": "5e8593bd98f1f10014aacb71",
+        "order": 0
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 380,
+        "known_for_department": "Acting",
+        "name": "Robert De Niro",
+        "original_name": "Robert De Niro",
+        "popularity": 7.9178,
+        "profile_path": "/cT8htcckIuyI1Lqwt1CvD02ynTh.jpg",
+        "cast_id": 16,
+        "character": "Murray Franklin",
+        "credit_id": "5b5242749251411f8600052d",
+        "order": 1
+      },
+      {
+        "adult": false,
+        "gender": 1,
+        "id": 1545693,
+        "known_for_department": "Acting",
+        "name": "Zazie Beetz",
+        "original_name": "Zazie Beetz",
+        "popularity": 4.7399,
+        "profile_path": "/sgxzT54GnvgeMnOZgpQQx9csAdd.jpg",
+        "cast_id": 15,
+        "character": "Sophie Dumond",
+        "credit_id": "5b5122a00e0a262596006a4c",
+        "order": 2
+      },
+      {
+        "adult": false,
+        "gender": 1,
+        "id": 4432,
+        "known_for_department": "Acting",
+        "name": "Frances Conroy",
+        "original_name": "Frances Conroy",
+        "popularity": 2.2737,
+        "profile_path": "/aJRQAkO24L6bH8qkkE5Iv1nA3gf.jpg",
+        "cast_id": 17,
+        "character": "Penny Fleck",
+        "credit_id": "5b5636fcc3a3685c8e026bac",
+        "order": 3
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 16841,
+        "known_for_department": "Acting",
+        "name": "Brett Cullen",
+        "original_name": "Brett Cullen",
+        "popularity": 3.2588,
+        "profile_path": "/4P6TsRcnr9MRbXlCdHitulGM5LT.jpg",
+        "cast_id": 35,
+        "character": "Thomas Wayne",
+        "credit_id": "5b9fecf0c3a3680441002ee1",
+        "order": 4
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 74242,
+        "known_for_department": "Acting",
+        "name": "Shea Whigham",
+        "original_name": "Shea Whigham",
+        "popularity": 3.0957,
+        "profile_path": "/d3caK3l4UfbnzOxv95wLoFLZzMO.jpg",
+        "cast_id": 40,
+        "character": "Detective Burke",
+        "credit_id": "5ba0149092514177b20076a7",
+        "order": 5
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 121718,
+        "known_for_department": "Acting",
+        "name": "Bill Camp",
+        "original_name": "Bill Camp",
+        "popularity": 2.578,
+        "profile_path": "/wxYyJSltCHwU0MTg838SllOlvNT.jpg",
+        "cast_id": 37,
+        "character": "Detective Garrity",
+        "credit_id": "5ba0144fc3a3680441008c31",
+        "order": 6
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 1377670,
+        "known_for_department": "Acting",
+        "name": "Glenn Fleshler",
+        "original_name": "Glenn Fleshler",
+        "popularity": 1.1615,
+        "profile_path": "/x1Cef2yPZS7bJTwxI7DX3q0HNcv.jpg",
+        "cast_id": 38,
+        "character": "Randall",
+        "credit_id": "5ba014700e0a2633c5008920",
+        "order": 7
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 1416396,
+        "known_for_department": "Acting",
+        "name": "Leigh Gill",
+        "original_name": "Leigh Gill",
+        "popularity": 0.5355,
+        "profile_path": "/stbbWD89FQWa34TNVyxVj5xBVIm.jpg",
+        "cast_id": 64,
+        "character": "Gary",
+        "credit_id": "5ca5b79d9251415ebe6c3035",
+        "order": 8
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 6181,
+        "known_for_department": "Acting",
+        "name": "Josh Pais",
+        "original_name": "Josh Pais",
+        "popularity": 0.8248,
+        "profile_path": "/uH90fGfLLzYCX02yOW3kH4LMO7n.jpg",
+        "cast_id": 18,
+        "character": "Hoyt Vaughn",
+        "credit_id": "5b5d2363925141521a021d99",
+        "order": 9
+      }
+    ],
+    "crew": [
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 324,
+        "known_for_department": "Writing",
+        "name": "Scott Silver",
+        "original_name": "Scott Silver",
+        "popularity": 0.6554,
+        "profile_path": "/33ZiBPOsV43eS9Di5VJ75f87y8c.jpg",
+        "credit_id": "5c6dd8aa0e0a262c99a1aed3",
+        "department": "Writing",
+        "job": "Writer"
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 57130,
+        "known_for_department": "Directing",
+        "name": "Todd Phillips",
+        "original_name": "Todd Phillips",
+        "popularity": 1.1678,
+        "profile_path": "/A6FPht87DiqXzp456WjakLi2AtP.jpg",
+        "credit_id": "5c6dd87a0e0a267f9d9aa6d3",
+        "department": "Writing",
+        "job": "Writer"
+      },
+      {
+        "adult": false,
+        "gender": 1,
+        "id": 45648,
+        "known_for_department": "Production",
+        "name": "Emma Tillinger Koskoff",
+        "original_name": "Emma Tillinger Koskoff",
+        "popularity": 0.4345,
+        "profile_path": "/yGcSq0w7n0JRpoarjQT1E9q3TSH.jpg",
+        "credit_id": "5c6dd8499251412a7404f29b",
+        "department": "Production",
+        "job": "Producer"
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 57130,
+        "known_for_department": "Directing",
+        "name": "Todd Phillips",
+        "original_name": "Todd Phillips",
+        "popularity": 1.1678,
+        "profile_path": "/A6FPht87DiqXzp456WjakLi2AtP.jpg",
+        "credit_id": "5c6dd8139251412fc4111d8f",
+        "department": "Production",
+        "job": "Producer"
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 51329,
+        "known_for_department": "Acting",
+        "name": "Bradley Cooper",
+        "original_name": "Bradley Cooper",
+        "popularity": 4.718,
+        "profile_path": "/5Dhy50qOMOHfR1NZifKIfffjV9X.jpg",
+        "credit_id": "5c6dd82bc3a368745eeea2b9",
+        "department": "Production",
+        "job": "Producer"
+      },
+      {
+        "adult": false,
+        "gender": 1,
+        "id": 1178828,
+        "known_for_department": "Sound",
+        "name": "Hildur Guðnadóttir",
+        "original_name": "Hildur Guðnadóttir",
+        "popularity": 0.546,
+        "profile_path": "/xkJTSLeYZkOqouzflrUNgLSC1lL.jpg",
+        "credit_id": "5c727261c3a3685a35155f07",
+        "department": "Sound",
+        "job": "Original Music Composer"
+      },
+      {
+        "adult": false,
+        "gender": 2,
+        "id": 57130,
+        "known_for_department": "Directing",
+        "name": "Todd Phillips",
+        "original_name": "Todd Phillips",
+        "popularity": 1.1678,
+        "profile_path": "/A6FPht87DiqXzp456WjakLi2AtP.jpg",
+        "credit_id": "5e83226e3acd2000183811d9",
+        "department": "Directing",
+        "job": "Director"
+      }
+    ]
+  },
+  "keywords": {
+    "keywords": [
+      {
+        "id": 3679,
+        "name": "society"
+      },
+      {
+        "id": 9717,
+        "name": "based on comic"
+      },
+      {
+        "id": 11479,
+        "name": "social commentary"
+      },
+      {
+        "id": 12565,
+        "name": "psychological thriller"
+      },
+      {
+        "id": 18023,
+        "name": "criminal mastermind"
+      },
+      {
+        "id": 41329,
+        "name": "mental illness"
+      },
+      {
+        "id": 41665,
+        "name": "anarchy"
+      },
+      {
+        "id": 164186,
+        "name": "character study"
+      },
+      {
+        "id": 166235,
+        "name": "clown makeup"
+      },
+      {
+        "id": 170356,
+        "name": "outsider"
+      },
+      {
+        "id": 172144,
+        "name": "prophetic"
+      },
+      {
+        "id": 190823,
+        "name": "social realism"
+      },
+      {
+        "id": 196003,
+        "name": "tv host"
+      },
+      {
+        "id": 208289,
+        "name": "1980s"
+      },
+      {
+        "id": 240237,
+        "name": "mother son relationship"
+      },
+      {
+        "id": 242214,
+        "name": "origin story"
+      },
+      {
+        "id": 315529,
+        "name": "falling into madness"
+      },
+      {
+        "id": 352649,
+        "name": "anti-capitalist"
+      }
+    ]
+  },
+  "release_dates": {
+    "results": [
+      {
+        "iso_3166_1": "US",
+        "release_dates": [
+          {
+            "certification": "",
+            "descriptors": [],
+            "iso_639_1": "",
+            "note": "Hollywood, California",
+            "release_date": "2019-09-28T00:00:00.000Z",
+            "type": 1
+          },
+          {
+            "certification": "R",
+            "descriptors": [],
+            "iso_639_1": "",
+            "note": "",
+            "release_date": "2019-10-04T00:00:00.000Z",
+            "type": 3
+          },
+          {
+            "certification": "R",
+            "descriptors": [],
+            "iso_639_1": "",
+            "note": "",
+            "release_date": "2019-12-17T00:00:00.000Z",
+            "type": 4
+          },
+          {
+            "certification": "R",
+            "descriptors": [],
+            "iso_639_1": "",
+            "note": "4K Ultra HD / Blu-ray / DVD",
+            "release_date": "2020-01-07T00:00:00.000Z",
+            "type": 5
+          }
+        ]
+      },
+      {
+        "iso_3166_1": "FR",
+        "release_dates": [
+          {
+            "certification": "",
+            "descriptors": [],
+            "iso_639_1": "",
+            "note": "Montpellier",
+            "release_date": "2019-10-04T00:00:00.000Z",
+            "type": 1
+          },
+          {
+            "certification": "12",
+            "descriptors": [],
+            "iso_639_1": "fr",
+            "note": "",
+            "release_date": "2019-10-09T00:00:00.000Z",
+            "type": 3
+          },
+          {
+            "certification": "",
+            "descriptors": [],
+            "iso_639_1": "",
+            "note": "4K Ultra HD / Blu-ray / DVD",
+            "release_date": "2020-02-12T00:00:00.000Z",
+            "type": 5
+          }
+        ]
+      },
+      {
+        "iso_3166_1": "GB",
+        "release_dates": [
+          {
+            "certification": "15",
+            "descriptors": [],
+            "iso_639_1": "",
+            "note": "",
+            "release_date": "2019-10-04T00:00:00.000Z",
+            "type": 3
+          },
+          {
+            "certification": "15",
+            "descriptors": [],
+            "iso_639_1": "",
+            "note": "",
+            "release_date": "2020-01-27T00:00:00.000Z",
+            "type": 4
+          },
+          {
+            "certification": "15",
+            "descriptors": [],
+            "iso_639_1": "",
+            "note": "",
+            "release_date": "2020-02-10T00:00:00.000Z",
+            "type": 5
+          }
+        ]
+      }
+    ]
+  }
+}

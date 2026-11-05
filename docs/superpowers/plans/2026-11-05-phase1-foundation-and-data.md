@@ -157,7 +157,7 @@ def test_cpi_file_has_1960_to_2026():
   - `test_truncated_last_line_is_refetched`
   - `test_done_chunk_is_skipped` (manifest done → 0 HTTP calls)
 - [x] **Step 2–4:** FAIL → implement → PASS.
-- [ ] **Step 5:** Manual check (needs `TMDB_READ_TOKEN`): `uv run python -m llm_movies.data.tmdb_pull --ids <export> --chunk 0 --out raw/tmdb --limit 50` → 50 lines (minus missing), manifest updated.
+- [x] **Step 5:** Manual check (needs `TMDB_READ_TOKEN`): `uv run python -m llm_movies.data.tmdb_pull --ids <export> --chunk 0 --out raw/tmdb --limit 50` → 50 lines (minus missing), manifest updated.
 - [x] **Step 6:** Commit `feat(data): resumable TMDB pull`.
 
 ### Task 5: Source material and award families
