@@ -134,8 +134,8 @@ def test_cpi_file_has_1960_to_2026():
 **Interfaces:**
 - Produces: `ShardWriter(path: Path)` context manager with `.write(record: dict)` (one JSON line, flushed); `read_shard(path) -> Iterator[dict]` (skips a truncated/invalid last line); `done_keys(path, key: str) -> set` (keys of valid records); `Manifest(path)` with `.is_done(chunk: int) -> bool`, `.mark_done(chunk: int, stats: dict)` (written atomically: temp file + `os.replace`).
 
-- [ ] **Step 1: Write failing tests:** `test_roundtrip`, `test_truncated_last_line_is_skipped` (write two records, append `'{"id": 3, "ti'`, assert reader yields 2 and `done_keys == {1, 2}`), `test_manifest_marks_and_survives_reload`.
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(data): resumable JSONL shards`.
+- [x] **Step 1: Write failing tests:** `test_roundtrip`, `test_truncated_last_line_is_skipped` (write two records, append `'{"id": 3, "ti'`, assert reader yields 2 and `done_keys == {1, 2}`), `test_manifest_marks_and_survives_reload`.
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(data): resumable JSONL shards`.
 
 ### Task 4: TMDB IDs and resumable pull
 
