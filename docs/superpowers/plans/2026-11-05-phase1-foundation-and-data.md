@@ -108,8 +108,8 @@ def test_cutoff_parses_as_date(tmp_path):
 **Interfaces:**
 - Produces: `MIN_MONEY = 1_000`; `load_cpi(path) -> dict[int, float]`; `load_fx(path) -> dict[tuple[str, int], float]` (units of currency per 1 USD); `clean_amount(amount: float | None) -> float | None` (0, None, < MIN_MONEY → None); `to_usd(amount, currency: str, year: int, fx) -> float | None` (None for an unknown currency/year); `to_2025_usd(amount_usd, year, cpi) -> float | None`.
 
-- [ ] **Step 1:** Build `data/fx_usd_annual.csv` (`currency,year,per_usd`) for EUR, GBP, JPY, INR, CNY, KRW, AUD, CAD, FRF, DEM, ITL, ESP, 1960–2026, from FRED annual exchange-rate series (legacy currencies via their fixed euro conversion rates after 1999). Record the source in a header comment row `# source: ...`.
-- [ ] **Step 2: Write failing tests**
+- [x] **Step 1:** Build `data/fx_usd_annual.csv` (`currency,year,per_usd`) for EUR, GBP, JPY, INR, CNY, KRW, AUD, CAD, FRF, DEM, ITL, ESP, 1960–2026, from FRED annual exchange-rate series (legacy currencies via their fixed euro conversion rates after 1999). Record the source in a header comment row `# source: ...`.
+- [x] **Step 2: Write failing tests**
 
 ```python
 def test_zero_and_placeholder_are_unknown():
@@ -125,7 +125,7 @@ def test_cpi_file_has_1960_to_2026():
     cpi = load_cpi(Path("data/cpi_us_annual.csv")); assert min(cpi) == 1960 and max(cpi) >= 2026
 ```
 
-- [ ] **Step 3:** Run → FAIL. **Step 4:** Implement. **Step 5:** Run → PASS. **Step 6:** Commit `feat(data): money conversion`.
+- [x] **Step 3:** Run → FAIL. **Step 4:** Implement. **Step 5:** Run → PASS. **Step 6:** Commit `feat(data): money conversion`.
 
 ### Task 3: Shards and manifest
 
