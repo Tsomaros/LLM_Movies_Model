@@ -1,10 +1,10 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-13 done. Next: Task 14 (dataset export and data report).
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-14 done. Next: Task 15 (Colab launchers and the full run).
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
-- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 5df791e; its CI run passed
-  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42050096414).
+- Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 55e5fc5; its CI run passed
+  (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42055792680).
 
 ## Done
 - 2026-11-05: Design spec approved; roadmap and Phase 1 plan written; `CLAUDE.md`, the three subagents (adapted) and the
@@ -33,6 +33,8 @@
   run on Windows.
 - 2026-11-05: Task 13 (resolve and render, `collection_name` column, three golden prompts). 727 tests pass, ruff clean, code-reviewer
   and test-auditor run on Windows; the audit ran 104 mutants.
+- 2026-11-05: Task 14 (dataset export, data report). 759 tests pass, ruff clean, code-reviewer and test-auditor run on Windows. CLIs run
+  on the mini DB; no real Hugging Face push yet.
 
 ## Open questions
 - Possible outcome leaks to check before training (Phase 1 data report or Phase 2): `source_sitelinks` is today's count, so a hit film
@@ -113,9 +115,15 @@
   lead age, collaborations, source strength, wins beside nominations, company records. A first franchise entry shows no franchise, in
   training and serving alike. A nameless person prints `Unnamed` with the real record. A training film's budget ignores `money_suspect`.
   `release_type` None prints "not given", never wide. Regenerate goldens only with `UPDATE_GOLDEN=1`.
-- For Task 14: stream resolve and write in chunks, never holding 1.2M objects; build `Context` once; always pass `form_as_of(form)`; audit
-  rendered text for outcome words in free text (box office, grossing, dollar figures, Oscar, Academy Award). Estimated 20-40 minutes on one
-  core at 1.2M films, unmeasured. The longest real mini prompt is 2,160 characters; a synthetic worst case reached 2,929 with long names.
+- Export and report: `films.parquet` holds train, calibration, validation; `locked.parquet` holds test and holdout; `later` films go in
+  neither, beyond the plan's single file. Phase 2 training reads only `films.parquet`. `export` re-checks every film's split against
+  the current config and stops on a mismatch, so changing `base_model_cutoff` or the years means a rebuild first. `push` refuses a public
+  repo and missing files. `report` uses open splits only, with locked splits as film counts, and audits free text for outcome words; on
+  the mini set all patterns show 0, so judge them on the real report. Mini run: 1.9 ms per film resolved, 1.8 KB of parquet per film;
+  projected at most 38 minutes and 2.2 GB at 1.2M films, unmeasured at scale. The longest real mini prompt is 2,160 characters; a
+  synthetic worst case reached 2,929 with long names.
+- For Task 15: notebook 03 runs `export` only after a rebuild when the config changed. The first real push needs `HF_TOKEN` and must
+  find `Tsomaros/llm-movies-data` private or absent. Rebuild is needed anyway, since `movies` gained columns in Tasks 12-13.
 - For Phase 2: measure real tokens, since digit-heavy person lines may exceed the spec's 400-600. A hidden `release_day` still leaves
   day-based values from the true day, a small conservative skew from serving's 1st of the month. An anonymised-names experiment must
   anonymise the franchise name too. Later franchise names and rare synopsis details can identify a film. `render` imports `resolve.py` and

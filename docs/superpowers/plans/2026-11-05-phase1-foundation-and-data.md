@@ -288,8 +288,8 @@ def test_cpi_file_has_1960_to_2026():
   - `push(out_dir, repo_id="Tsomaros/llm-movies-data", private=True)` via `huggingface_hub.HfApi.upload_folder`.
   - `report(db, parquet) -> str` (markdown): films per split; with revenue / with score; coverage % of every new field (writers, producers, composer, distributor, source_material ≠ original, release_type, tagline) and computed input; score-film counts at min_votes 10/20/50/100 (the table for the vote-threshold decision).
   - CLIs: `python -m llm_movies.data.export --db PATH --out DIR [--push]`, `python -m llm_movies.data.report --db PATH --parquet PATH --out reports/data_summary.md`.
-- [ ] **Step 1: Failing tests:** `test_targets_null_rules` (suspect/incomplete/low-votes → null), `test_rows_without_targets_dropped`, `test_resolved_json_loads`, `test_report_has_threshold_table`.
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(data): dataset export and report`.
+- [x] **Step 1: Failing tests:** `test_targets_null_rules` (suspect/incomplete/low-votes → null), `test_rows_without_targets_dropped`, `test_resolved_json_loads`, `test_report_has_threshold_table`.
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(data): dataset export and report`.
 
 ### Task 15: Colab launchers and the full run
 
