@@ -9,6 +9,7 @@ from llm_movies.data.clean import (
     FESTIVAL_GAP_DAYS,
     LOW_RATIO,
     STREAMER_START_YEARS,
+    STREAMING_START_YEAR,
     MovieRow,
     clean_movie,
     pick_distributor,
@@ -427,9 +428,10 @@ WIDE_LIMITED = [rd(2, "2000-06-01"), rd(3, "2000-06-10")]
         ([country("US", rd(3, "2000-06-01"))], "wide"),
         ([country("US", *WIDE_LIMITED)], "wide"),
         ([country("US", rd(2, "2000-06-01"))], "limited"),
-        ([country("US", rd(4, "2000-06-01"))], "streaming-only"),
-        ([country("US", rd(5, "2000-06-01"), rd(6, "2000-07-01"))], "streaming-only"),
-        ([country("US", rd(1, "2000-05-01"), rd(4, "2000-06-01"))], "streaming-only"),  # even after a premiere
+        # a 2000 film: a digital entry is its later online release, and DVD or TV runs never make it streaming-only
+        ([country("US", rd(4, "2000-06-01"))], None),
+        ([country("US", rd(5, "2000-06-01"), rd(6, "2000-07-01"))], None),
+        ([country("US", rd(1, "2000-05-01"), rd(4, "2000-06-01"))], None),
         ([country("US", rd(1, "2000-05-01"))], None),  # a premiere alone
         ([country("US", rd(1, "2000-05-01"), rd(4, "2000-06-01"), rd(3, "2000-07-01"))], "festival-first"),
         ([country("US")], None),
@@ -459,6 +461,47 @@ WIDE_LIMITED = [rd(2, "2000-06-01"), rd(3, "2000-06-10")]
 )
 def test_release_type_rules(results, expected):
     assert clean(with_dates(*results)).release_type == expected
+
+
+def film_of(year: int, *results: dict) -> MovieRow:
+    raw = raw_film(release_date=f"{year}-06-01", release_dates={"results": list(results)})
+    return clean(raw, cpi={year: 90.0, 2025: 100.0}, pulled_at=date(2026, 1, 1))
+
+
+def test_digital_release_is_streaming_only_from_2007():
+    assert STREAMING_START_YEAR == 2007
+    assert film_of(2006, country("US", rd(4, "2006-06-01"))).release_type is None
+    assert film_of(2007, country("US", rd(4, "2007-06-01"))).release_type == "streaming-only"
+    assert film_of(2020, country("US", rd(1, "2020-05-01"), rd(4, "2020-06-01"))).release_type == "streaming-only"
+
+
+def test_physical_or_tv_release_alone_is_not_streaming_only():
+    assert film_of(2020, country("US", rd(5, "2020-06-01"))).release_type is None
+    assert film_of(2020, country("US", rd(6, "2020-06-01"))).release_type is None
+    assert film_of(2020, country("US", rd(5, "2020-06-01"), rd(6, "2020-07-01"))).release_type is None
+
+
+@pytest.mark.parametrize(
+    ("results", "expected"),
+    [
+        # an old film whose US entries are only DVD and TV runs: the country with a cinema release decides
+        ([country("US", rd(5, "1985-09-01"), rd(6, "1990-01-01")), country("FR", rd(3, "1985-06-01"))], "wide"),
+        ([country("US", rd(4, "2012-01-01")), country("GB", rd(2, "1985-06-01"))], "limited"),
+        # among theatrical countries the earliest wins, even when a non-theatrical one is earlier still
+        ([country("US", rd(5, "1984-01-01")), country("DE", rd(3, "1985-07-01")), country("FR", rd(2, "1985-06-01"))], "limited"),
+        # a US cinema release still wins over an earlier one elsewhere
+        ([country("FR", rd(3, "1985-01-01")), country("US", rd(5, "1984-01-01"), rd(2, "1985-06-01"))], "limited"),
+        # a premiere abroad is not a theatrical release: the US entries still decide
+        ([country("US", rd(5, "1985-09-01")), country("FR", rd(1, "1985-05-01"))], None),
+    ],
+)
+def test_country_with_a_cinema_release_is_chosen(results, expected):
+    assert film_of(1985, *results).release_type == expected
+
+
+def test_streaming_film_with_a_festival_premiere_abroad_stays_streaming_only():
+    film = film_of(2020, country("US", rd(4, "2020-06-01")), country("IT", rd(1, "2020-09-01")))
+    assert film.release_type == "streaming-only"
 
 
 # ---- certification ----

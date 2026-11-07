@@ -2,10 +2,14 @@
 
 ## Now
 - Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-14 done; Task 15's notebooks done, its Colab runs not yet.
-- Before the Colab runs, three fixes the dry run found: TMDB pull is sequential (about 4.9 ids/s, so about 70 h for 241 chunks; a
-  thread pool keeping the 40/s cap would cut it to about 10 h); `release_type` misreads old films (US DVD or TV entries, types 5/6,
-  read as streaming-only; 43 such films in the 1,000-film sample, and 14% of 2000s films read festival-first, unchecked); Wikidata films
-  take about 30 s per 500 ids, about 20 h, and the owner decides whether to pull Wikidata only for films that can matter.
+- 2026-11-07: two dry-run fixes done. TMDB pull runs `--workers` threads (default 8) under the shared 40/s cap, writing in id
+  order on the main thread (expected about 10 h instead of 70 h; the real speed is unmeasured until Colab). `release_type`: the
+  country is chosen among those with a cinema entry (US first), only TMDB type 4 counts as streaming-only and only from 2007;
+  types 5/6 (DVD, TV) never do. Festival-first left as is: the 7 cases in the 50-film local sample were real festival films.
+  Known trade-off: a US digital-only film with a cinema run abroad now reads limited/wide, not streaming-only. 429s back off
+  per thread (no shared pause); revisit if Colab shows many 429s.
+- Still open: Wikidata films take about 30 s per 500 ids, about 20 h; the owner decides whether to pull Wikidata only for films
+  that can matter.
 - Then Task 15 Step 2 (sample run in Colab), Step 4 (full run), Step 5 (`min_votes` decision).
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
 - Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 55e5fc5; its CI run passed

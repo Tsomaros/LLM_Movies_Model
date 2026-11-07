@@ -1,18 +1,24 @@
 """Resumable TMDB pull: one JSONL shard per chunk of ids, safe to kill and rerun at any time.
 
-python -m llm_movies.data.tmdb_pull --ids PATH --chunk N --out DIR [--limit K]
-python -m llm_movies.data.tmdb_pull --ids PATH --all --repo REPO --out DIR [--limit K] [--max-chunks M]
+python -m llm_movies.data.tmdb_pull --ids PATH --chunk N --out DIR [--limit K] [--workers W]
+python -m llm_movies.data.tmdb_pull --ids PATH --all --repo REPO --out DIR [--limit K] [--max-chunks M] [--workers W]
 
 `--chunk N` pulls one chunk into the local folder. `--all` goes through every chunk the manifest does not list, in order,
 and after each finished chunk uploads its shard, its missing file and the manifest to the Hub repo in one commit
 (under `tmdb/`). A dead session then loses only the chunk in progress: download `tmdb/`, run again.
+
+Requests run on `--workers` threads (default 8) that together stay under the 40-a-second cap; one request at a time
+manages only about 5 a second, since each waits on the network. Records are still written in id order by the main
+thread only, so a shard looks and resumes the same as with one worker.
 """
 
 import argparse
 import json
 import math
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -28,6 +34,8 @@ API = "https://api.themoviedb.org/3/movie/{id}"
 APPEND = "credits,keywords,release_dates"
 MAX_BACKOFF = 60.0
 REPO_DIR = "tmdb"  # the folder of shards in the Hub repo
+WORKERS = 8  # at about 0.2 s a request, 8 threads reach the 40-a-second cap
+WINDOW = 200  # ids handed to the threads at once: a failure wastes at most this many requests
 
 
 class ManifestError(RuntimeError):
@@ -41,17 +49,30 @@ class TmdbError(RuntimeError):
 class TmdbClient:
     def __init__(self, token: str, session: requests.Session | None = None, max_per_second: float = 40, max_retries: int = 6):
         self._token = token
-        self.session = session or requests.Session()
+        self._shared = session  # a session given here serves every thread; otherwise each thread opens its own
+        self._local = threading.local()
         self.max_retries = max_retries
         self._interval = 1 / max_per_second
-        self._last = None
+        self._lock = threading.Lock()
+        self._next = None  # the earliest time the next request may start, shared by every thread
+
+    @property
+    def session(self) -> requests.Session:
+        if self._shared is not None:
+            return self._shared
+        if not hasattr(self._local, "session"):
+            self._local.session = requests.Session()
+        return self._local.session
 
     def _throttle(self) -> None:
-        if self._last is not None:
-            wait = self._last + self._interval - time.monotonic()
-            if wait > 0:
-                time.sleep(wait)
-        self._last = time.monotonic()
+        """Book the next free slot under the lock, then wait for it outside the lock, so the threads together never
+        start more than `max_per_second` requests a second."""
+        with self._lock:
+            now = time.monotonic()
+            start = now if self._next is None else max(now, self._next)
+            self._next = start + self._interval
+        if start > now:
+            time.sleep(start - now)
 
     def movie(self, tmdb_id: int) -> dict | None:
         """The film's full record, or None only for a real 404. Anything else that fails raises, so a
@@ -93,9 +114,14 @@ class TmdbClient:
         return max(seconds, 0)
 
 
-def pull_chunk(client, chunk: int, ids: list[int], out_dir: Path, manifest: Manifest, *, mark_done: bool = True) -> dict:
-    """Fetch every id not yet in the chunk's shard or missing file. Returns chunk totals
-    ({"pulled", "missing"}), so a resumed run never understates. `mark_done=False` is for partial runs."""
+def pull_chunk(
+    client, chunk: int, ids: list[int], out_dir: Path, manifest: Manifest, *, mark_done: bool = True, workers: int = 1
+) -> dict:
+    """Fetch every id not yet in the chunk's shard or missing file, `workers` requests at a time. Returns chunk totals
+    ({"pulled", "missing"}), so a resumed run never understates. `mark_done=False` is for partial runs.
+
+    Answers are written in id order by this thread: when a request fails for good, every id before it is on disk
+    and none after it, as with one worker."""
     if manifest.is_done(chunk):
         return {"pulled": 0, "missing": 0}
     out_dir = Path(out_dir)
@@ -103,20 +129,30 @@ def pull_chunk(client, chunk: int, ids: list[int], out_dir: Path, manifest: Mani
     missing_file = out_dir / f"missing_{chunk:04d}.txt"
     pulled = done_keys(shard, "id")
     missing = done_keys(missing_file, "id")
-    with ShardWriter(shard) as shard_writer, ShardWriter(missing_file) as missing_writer:
-        for tmdb_id in ids:
-            if tmdb_id in pulled or tmdb_id in missing:
-                continue
-            record = client.movie(tmdb_id)
-            if record is None:
-                missing_writer.write({"id": tmdb_id})
-                missing.add(tmdb_id)
-                continue
-            # Key the shard by the id we asked for: if TMDB answers with another id (a redirect or merge),
-            # resume would otherwise never see this id as done and refetch it forever.
-            record = {**record, "id": tmdb_id, "pulled_at": datetime.now(UTC).isoformat()}
-            shard_writer.write(record)
-            pulled.add(tmdb_id)
+    todo = list(dict.fromkeys(i for i in ids if i not in pulled and i not in missing))
+    with (
+        ShardWriter(shard) as shard_writer,
+        ShardWriter(missing_file) as missing_writer,
+        ThreadPoolExecutor(max_workers=workers) as pool,
+    ):
+        try:
+            for start in range(0, len(todo), WINDOW):
+                window = todo[start : start + WINDOW]
+                for tmdb_id, record in zip(window, pool.map(client.movie, window), strict=True):  # yields in order
+                    if record is None:
+                        missing_writer.write({"id": tmdb_id})
+                        missing.add(tmdb_id)
+                        continue
+                    # Key the shard by the id we asked for: if TMDB answers with another id (a redirect or merge),
+                    # resume would otherwise never see this id as done and refetch it forever.
+                    record = {**record, "id": tmdb_id, "pulled_at": datetime.now(UTC).isoformat()}
+                    shard_writer.write(record)
+                    pulled.add(tmdb_id)
+        except BaseException:
+            # Drop the queued requests now; leaving the pool still waits for the ones in flight (at most `workers`,
+            # each finishing its own retries), but none that had not started.
+            pool.shutdown(wait=False, cancel_futures=True)
+            raise
     stats = {"pulled": len(pulled), "missing": len(missing)}
     if mark_done:
         manifest.mark_done(chunk, stats)
@@ -151,6 +187,7 @@ def pull_all(
     max_chunks: int | None = None,
     meta: dict | None = None,
     remote: dict | None = None,
+    workers: int = 1,
 ) -> list[int]:
     """Pull every chunk not done in the manifest, in order, and `upload({repo path: file or bytes})` after each one.
     A chunk enters the manifest (in the upload, and on disk only once the upload worked) when it is fully pulled, so a
@@ -169,7 +206,7 @@ def pull_all(
             break
         if manifest.is_done(chunk):
             continue
-        stats = pull_chunk(client, chunk, ids if limit is None else ids[:limit], out_dir, manifest, mark_done=False)
+        stats = pull_chunk(client, chunk, ids if limit is None else ids[:limit], out_dir, manifest, mark_done=False, workers=workers)
         files = {
             f"{REPO_DIR}/tmdb_{chunk:04d}.jsonl": out_dir / f"tmdb_{chunk:04d}.jsonl",
             f"{REPO_DIR}/missing_{chunk:04d}.txt": out_dir / f"missing_{chunk:04d}.txt",
@@ -196,7 +233,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--max-chunks", type=int, help="with --all: stop after this many chunks")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--limit", type=int, help="pull only the first K ids of the chunk; leaves the chunk unmarked")
+    parser.add_argument("--workers", type=int, default=WORKERS, help=f"requests in flight at once (default {WORKERS})")
     args = parser.parse_args(argv)
+    if args.workers < 1:
+        parser.error("--workers must be at least 1")
     if args.all == (args.chunk is not None):
         parser.error("give exactly one of --chunk N or --all")
     if args.all and not args.repo:
@@ -220,7 +260,11 @@ def main(argv: list[str] | None = None) -> None:
         remote = hub_store.read_json(args.repo, f"{REPO_DIR}/manifest.json", api=api)
         try:
             handled = pull_all(
-                TmdbClient(token), chunks, args.out, manifest, upload, limit=args.limit, max_chunks=args.max_chunks, meta=meta, remote=remote
+                TmdbClient(token), chunks, args.out, manifest, upload, limit=args.limit,
+                max_chunks=args.max_chunks,
+                meta=meta,
+                remote=remote,
+                workers=args.workers,
             )
         except ManifestError as error:
             raise SystemExit(str(error)) from None
@@ -231,7 +275,7 @@ def main(argv: list[str] | None = None) -> None:
     ids = chunks[args.chunk]
     if args.limit is not None:
         ids = ids[: args.limit]
-    stats = pull_chunk(TmdbClient(token), args.chunk, ids, args.out, manifest, mark_done=args.limit is None)
+    stats = pull_chunk(TmdbClient(token), args.chunk, ids, args.out, manifest, mark_done=args.limit is None, workers=args.workers)
     print(json.dumps(stats))
 
 

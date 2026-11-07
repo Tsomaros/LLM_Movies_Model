@@ -35,7 +35,11 @@ STREAMER_START_YEARS = {
     "Starz": 1994,
 }
 _STREAMER_RELEASE_TYPES = {"streaming-only", "limited", "festival-first"}
-_STREAMING_TYPES = {4, 5, 6}
+_DIGITAL = 4  # types 5 (physical) and 6 (TV) are later home-video and TV runs, not a way a film is first released
+
+# A film counts as streaming-only only from this year on (Netflix streaming launched in January 2007). Older films
+# carry digital entries for their later online release, which says nothing about how they came out.
+STREAMING_START_YEAR = 2007
 
 # Distributor families, in priority order: the first family with any matching label wins and gives its canonical
 # name. Built from the Wikidata distributor labels of 1,000 sampled films (counts in the task-7 report). Only a
@@ -188,15 +192,20 @@ def _release_entries(raw: dict) -> dict[str, list[tuple[date, int, str]]]:
 
 
 def _chosen_country(by_country: dict[str, list]) -> list:
-    if by_country.get("US"):
-        return by_country["US"]
-    if not by_country:
+    """The US entries, else the earliest country's, looking only at countries with a theatrical entry when any has one:
+    an old film's US entries are often only its DVD or TV runs while another country lists the cinema release."""
+    theatrical = {c: e for c, e in by_country.items() if any(k in (_LIMITED, _WIDE) for _, k, _ in e)}
+    pool = theatrical or by_country
+    if pool.get("US"):
+        return pool["US"]
+    if not pool:
         return []
-    earliest = min(by_country, key=lambda c: (min(e[0] for e in by_country[c]), c))
-    return by_country[earliest]
+    earliest = min(pool, key=lambda c: (min(e[0] for e in pool[c]), c))
+    return pool[earliest]
 
 
-def release_type(entries: list[tuple[date, int, str]]) -> str | None:
+def release_type(entries: list[tuple[date, int, str]], year: int) -> str | None:
+    """`year` is the film's release year: a digital-only release counts as streaming-only from STREAMING_START_YEAR."""
     kinds = {k for _, k, _ in entries}
     theatrical = [d for d, k, _ in entries if k in (_LIMITED, _WIDE)]
     premieres = [d for d, k, _ in entries if k == _PREMIERE]
@@ -206,7 +215,7 @@ def release_type(entries: list[tuple[date, int, str]]) -> str | None:
         return "wide"
     if _LIMITED in kinds:
         return "limited"
-    if kinds & _STREAMING_TYPES:
+    if _DIGITAL in kinds and year >= STREAMING_START_YEAR:
         return "streaming-only"
     return None
 
@@ -241,7 +250,7 @@ def clean_movie(raw: dict, wd: FilmFacts | None, cpi: dict, fx: dict, pulled_at:
 
     by_country = _release_entries(raw)
     keywords = _names(_dict(raw.get("keywords")).get("keywords"), "name")
-    kind = release_type(_chosen_country(by_country))
+    kind = release_type(_chosen_country(by_country), released.year)
     runtime = raw.get("runtime")
     belongs = _dict(raw.get("belongs_to_collection"))
     collection = belongs.get("id")

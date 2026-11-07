@@ -178,8 +178,8 @@ def test_clean_release_types_are_all_allowed():
         for combo in itertools.combinations(range(1, 7), r):
             for gap in (0, 29, 30, 90):
                 entries = [(date(2020, 1, 1) + timedelta(days=gap if k != 1 else 0), k, "") for k in combo]
-                produced.add(release_type(entries))
-    produced.add(release_type([]))
+                produced.add(release_type(entries, 2020))
+    produced.add(release_type([], 2020))
     produced.discard(None)
     assert produced == set(RELEASE_TYPES)
 

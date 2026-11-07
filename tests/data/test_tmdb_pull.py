@@ -1,4 +1,7 @@
 import json
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -345,7 +348,7 @@ def test_cli_limit_pulls_prefix_and_leaves_chunk_open(monkeypatch, tmp_path, no_
     monkeypatch.setenv("TMDB_READ_TOKEN", TOKEN)
     client = FakeClient()
     monkeypatch.setattr(tmdb_pull, "TmdbClient", lambda token: client)
-    tmdb_pull.main(["--ids", str(SAMPLE), "--chunk", "0", "--out", str(tmp_path), "--limit", "2"])
+    tmdb_pull.main(["--ids", str(SAMPLE), "--chunk", "0", "--out", str(tmp_path), "--limit", "2", "--workers", "1"])
     assert client.requested == [3924, 8773]
     assert not Manifest(tmp_path / "manifest.json").is_done(0)
     assert json.loads(capsys.readouterr().out) == {"pulled": 2, "missing": 0}
@@ -355,7 +358,7 @@ def test_cli_full_run_marks_chunk_done(monkeypatch, tmp_path, no_dotenv, capsys)
     monkeypatch.setenv("TMDB_READ_TOKEN", TOKEN)
     client = FakeClient()
     monkeypatch.setattr(tmdb_pull, "TmdbClient", lambda token: client)
-    tmdb_pull.main(["--ids", str(SAMPLE), "--chunk", "0", "--out", str(tmp_path)])
+    tmdb_pull.main(["--ids", str(SAMPLE), "--chunk", "0", "--out", str(tmp_path), "--workers", "1"])
     assert client.requested == [3924, 8773, 25449, 900000, 900003, 900004]
     assert Manifest(tmp_path / "manifest.json").is_done(0)
     assert json.loads(capsys.readouterr().out) == {"pulled": 6, "missing": 0}
@@ -515,7 +518,7 @@ def test_cli_all_pulls_the_sample_and_uploads_through_hub_store(tmp_path, no_dot
     monkeypatch.setattr(hub_store, "make_api", lambda: "api")
     monkeypatch.setattr(hub_store, "read_json", lambda repo, path, **kw: None)
     monkeypatch.setattr(hub_store, "upload_files", lambda files, repo, **kw: uploads.append((sorted(files), repo, kw["api"])))
-    tmdb_pull.main(["--ids", str(SAMPLE), "--all", "--repo", "a/b", "--out", str(tmp_path), "--limit", "2", "--max-chunks", "1"])
+    tmdb_pull.main(["--ids", str(SAMPLE), "--all", "--repo", "a/b", "--out", str(tmp_path), "--limit", "2", "--max-chunks", "1", "--workers", "1"])
     assert client.requested == [3924, 8773]
     assert uploads == [(["tmdb/missing_0000.txt", "tmdb/tmdb_0000.jsonl"], "a/b", "api")]
     assert json.loads(capsys.readouterr().out) == {"chunks": [0]}
@@ -667,3 +670,109 @@ def test_cli_all_passes_meta_and_the_hub_manifest(tmp_path, no_dotenv, monkeypat
     tmdb_pull.main(["--ids", str(SAMPLE), "--all", "--repo", "a/b", "--out", str(tmp_path)])
     sent = json.loads(uploads[0]["tmdb/manifest.json"])
     assert sent["_meta"] == {"chunk_size": load_config().chunk_size, "chunks": 1}
+
+
+# ---- several requests in flight at once ----
+
+
+class ThreadedClient:
+    """A thread-safe stand-in: answers arrive in scrambled order; `barrier` makes each request wait until that many
+    are in flight at once; ids in `missing` give None; the id `fail_on` raises."""
+
+    def __init__(self, missing=(), fail_on=None, barrier=None):
+        self.lock = threading.Lock()
+        self.requested: list[int] = []
+        self.missing, self.fail_on, self.barrier = set(missing), fail_on, barrier
+
+    def movie(self, tmdb_id):
+        with self.lock:
+            self.requested.append(tmdb_id)
+        if self.barrier is not None:
+            self.barrier.wait(timeout=5)  # raises BrokenBarrierError if the requests are not concurrent
+        time.sleep((tmdb_id * 7 % 5) / 1000)  # later ids often finish first
+        if tmdb_id == self.fail_on:
+            raise RuntimeError("session died")
+        return None if tmdb_id in self.missing else {"id": tmdb_id, "title": f"film {tmdb_id}"}
+
+
+def assert_titles_match_ids(out: Path) -> None:
+    """pull_chunk overwrites `id` with the id it asked for, so a record paired with the wrong id shows only in the rest
+    of the record."""
+    assert all(r["title"] == f"film {r['id']}" for r in read_shard(out / "tmdb_0000.jsonl"))
+
+
+def test_workers_run_requests_at_the_same_time(tmp_path):
+    client = ThreadedClient(barrier=threading.Barrier(4))
+    stats = pull_chunk(client, 0, [1, 2, 3, 4], tmp_path, Manifest(tmp_path / "manifest.json"), workers=4)
+    assert shard_ids(tmp_path) == [1, 2, 3, 4]
+    assert stats == {"pulled": 4, "missing": 0}
+
+
+def test_workers_write_in_id_order_across_windows(tmp_path, monkeypatch):
+    monkeypatch.setattr(tmdb_pull, "WINDOW", 7)
+    ids = list(range(1, 31))
+    stats = pull_chunk(ThreadedClient(missing={5, 17}), 0, ids, tmp_path, Manifest(tmp_path / "manifest.json"), workers=8)
+    assert shard_ids(tmp_path) == [i for i in ids if i not in (5, 17)]
+    assert_titles_match_ids(tmp_path)
+    assert sorted(done_keys(tmp_path / "missing_0000.txt", "id")) == [5, 17]
+    assert stats == {"pulled": 28, "missing": 2}
+
+
+def test_a_failure_with_workers_keeps_the_ids_before_it_and_resumes_without_duplicates(tmp_path, monkeypatch):
+    monkeypatch.setattr(tmdb_pull, "WINDOW", 5)
+    ids = list(range(1, 21))
+    manifest = Manifest(tmp_path / "manifest.json")
+    with pytest.raises(RuntimeError, match="session died"):
+        pull_chunk(ThreadedClient(fail_on=12), 0, ids, tmp_path, manifest, workers=4)
+    assert shard_ids(tmp_path) == list(range(1, 12))  # everything before the failure, nothing after
+    assert not manifest.is_done(0)
+    again = ThreadedClient()
+    stats = pull_chunk(again, 0, ids, tmp_path, manifest, workers=4)
+    assert sorted(again.requested) == list(range(12, 21))
+    assert shard_ids(tmp_path) == ids
+    assert_titles_match_ids(tmp_path)
+    assert stats == {"pulled": 20, "missing": 0}
+
+
+def test_duplicate_ids_in_a_chunk_are_fetched_once(tmp_path):
+    client = ThreadedClient()
+    pull_chunk(client, 0, [1, 2, 1, 3, 2], tmp_path, Manifest(tmp_path / "manifest.json"), workers=3)
+    assert sorted(client.requested) == [1, 2, 3]
+    assert shard_ids(tmp_path) == [1, 2, 3]
+
+
+def test_threads_together_keep_to_max_per_second(monkeypatch, sleeps):
+    monkeypatch.setattr("time.monotonic", lambda: 100.0)  # frozen clock: every request books the next free slot
+    client, session = make_client([FakeResponse(200, {"id": i}) for i in range(6)], max_per_second=10)
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        list(pool.map(client.movie, range(6)))
+    assert len(session.calls) == 6
+    assert sorted(sleeps) == [pytest.approx(0.1 * n) for n in range(1, 6)]  # one slot each, none shared
+
+
+def test_each_thread_gets_its_own_session_when_none_is_given():
+    client = TmdbClient(TOKEN)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first, second = pool.map(lambda _: (time.sleep(0.05), client.session)[1], range(2))
+    assert first is not second
+    assert client.session is client.session  # one per thread, reused
+
+
+def test_cli_defaults_to_eight_workers_and_rejects_zero(monkeypatch, tmp_path, no_dotenv):
+    monkeypatch.setenv("TMDB_READ_TOKEN", TOKEN)
+    seen = {}
+    monkeypatch.setattr(tmdb_pull, "TmdbClient", lambda token: FakeClient())
+    monkeypatch.setattr(tmdb_pull, "pull_chunk", lambda *a, **kw: seen.update(kw) or {"pulled": 0, "missing": 0})
+    tmdb_pull.main(["--ids", str(SAMPLE), "--chunk", "0", "--out", str(tmp_path)])
+    assert seen["workers"] == 8
+    with pytest.raises(SystemExit):
+        tmdb_pull.main(["--ids", str(SAMPLE), "--chunk", "0", "--out", str(tmp_path), "--workers", "0"])
+
+
+def test_a_failure_cancels_the_queued_requests_of_the_window(tmp_path):
+    # 2 workers, a window of 200 ids, id 3 fails at once: the ids still queued must never be requested
+    client = ThreadedClient(fail_on=3)
+    with pytest.raises(RuntimeError, match="session died"):
+        pull_chunk(client, 0, list(range(1, 201)), tmp_path, Manifest(tmp_path / "manifest.json"), workers=2)
+    assert len(client.requested) < 20  # not the 200 the window holds
+    assert shard_ids(tmp_path) == [1, 2]
