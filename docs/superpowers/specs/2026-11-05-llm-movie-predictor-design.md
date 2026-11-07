@@ -106,8 +106,9 @@ Trailer views, theater counts, marketing spend (no honest historical pre-release
 ## 5. Data pipeline (Colab CPU runtime)
 
 1. **TMDB pull.** IDs from TMDB's daily movie ID export; one call per film with `append_to_response=credits,keywords,release_dates`.
-   Skip adult and video entries. No vote filter at pull time. Raw JSONL shards per chunk (e.g. 50k IDs per session),
-   saved to Google Drive; a manifest records finished chunks so any session resumes. TMDB token in Colab Secrets.
+   Skip adult and video entries. No vote filter at pull time. Raw JSONL shards per chunk (5,000 IDs each),
+   uploaded chunk by chunk to a private Hugging Face dataset repo (no Google Drive; owner's decision, 2026-11-05); a manifest
+   records finished chunks so any session resumes. Tokens in Colab Secrets.
 2. **Wikidata.** SPARQL in batches of ~500 TMDB IDs (P4947) with a descriptive project User-Agent and pauses.
    Films: based on (P144) and the source's type and sitelink count, distributed by (P750), screenwriter (P58),
    producer (P162), composer (P86), part of the series (P179) / follows (P155), box office (P2142), cost (P2130).
@@ -118,7 +119,7 @@ Trailer views, theater counts, marketing spend (no honest historical pre-release
    once it is 182 days old (budget from release); awards only if dated before release; vocabularies fit on train years only.
 5. **Targets.** Revenue: worldwide, 2025 USD, log scale. Score: TMDB `vote_average`, weighted by log(1+votes);
    minimum vote count decided after the pull.
-6. **Build.** SQLite built on the Colab disk from the shards (never written directly on Drive), then copied to Drive.
+6. **Build.** SQLite built on the Colab disk from the shards downloaded from the raw repo; rebuilt when needed, not stored.
    Output: a private Hugging Face dataset of examples `{prompt, revenue_log, score, score_weight, split, tmdb_id}`.
 
 ## 6. Splits

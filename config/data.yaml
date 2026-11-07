@@ -4,6 +4,6 @@ validation_years: [2016, 2018]
 test_from_year: 2019
 base_model_cutoff: null
 min_votes: 50
-chunk_size: 50000
+chunk_size: 5000
 mature_days: 182
 shrink_films: 4

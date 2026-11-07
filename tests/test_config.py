@@ -13,16 +13,16 @@ def test_defaults_match_spec():
     assert c.base_model_cutoff is None and c.min_votes == 50 and c.mature_days == 182 and c.shrink_films == 4
 
 
-def test_chunk_size_is_50000():
-    # brief: chunk_size=50_000 (not covered by the spec-defaults test above)
-    assert load_config(Path("config/data.yaml")).chunk_size == 50_000
+def test_chunk_size_is_5000():
+    # owner's decision: 5,000 ids per chunk, so a dead Colab session loses about 2 minutes of pulling
+    assert load_config(Path("config/data.yaml")).chunk_size == 5_000
 
 
 def test_dataclass_defaults_match_brief():
     # The code defaults are separate from the yaml; both must carry the brief's values.
     c = DataConfig()
     assert (c.train_max_year, c.calibration_years, c.validation_years, c.test_from_year) == (2013, (2014, 2015), (2016, 2018), 2019)
-    assert (c.base_model_cutoff, c.min_votes, c.chunk_size, c.mature_days, c.shrink_films) == (None, 50, 50_000, 182, 4)
+    assert (c.base_model_cutoff, c.min_votes, c.chunk_size, c.mature_days, c.shrink_films) == (None, 50, 5_000, 182, 4)
 
 
 def test_yaml_and_dataclass_defaults_agree():

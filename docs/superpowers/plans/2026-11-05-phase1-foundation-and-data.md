@@ -23,7 +23,7 @@
 - Wikidata requests send `User-Agent: LLMMoviesPredictionModel/0.1 (https://github.com/Tsomaros/LLM_Movies_Model)` and never an email address.
 - Secrets (TMDB token, HF token) come from environment variables `TMDB_READ_TOKEN`, `HF_TOKEN` (Colab Secrets in notebooks, `.env` locally); never committed.
 - Notebooks only launch `python -m llm_movies....` commands; no logic in notebooks.
-- SQLite is built on local disk, never written directly on Google Drive.
+- SQLite is built on local disk. Raw data lives in the private Hugging Face repo `Tsomaros/llm-movies-raw`; no Google Drive (owner's decision, 2026-11-05).
 - `CLAUDE.md` hard rules apply to every task: after the task's code is written, run the **code-reviewer** subagent; run the **test-auditor** subagent on every new test file; run the **ui-ux-reviewer** on every new frontend component (none in Phase 1). Apply their accepted findings before the task's commit.
 
 ## Review Focus
@@ -80,7 +80,7 @@ tests/... mirrors the package; tests/fixtures/ holds saved TMDB/Wikidata respons
 - Test: `tests/test_config.py`
 
 **Interfaces:**
-- Produces: `DataConfig` (frozen dataclass: `train_max_year=2013`, `calibration_years=(2014, 2015)`, `validation_years=(2016, 2018)`, `test_from_year=2019`, `base_model_cutoff: date | None`, `min_votes=50`, `chunk_size=50_000`, `mature_days=182`, `shrink_films=4`) and `load_config(path: Path = Path("config/data.yaml")) -> DataConfig`.
+- Produces: `DataConfig` (frozen dataclass: `train_max_year=2013`, `calibration_years=(2014, 2015)`, `validation_years=(2016, 2018)`, `test_from_year=2019`, `base_model_cutoff: date | None`, `min_votes=50`, `chunk_size=5_000`, `mature_days=182`, `shrink_films=4`) and `load_config(path: Path = Path("config/data.yaml")) -> DataConfig`.
 
 - [x] **Step 1:** `git init`; `uv init --package --name llm_movies --python 3.11`; add deps `pandas pyarrow requests pyyaml huggingface_hub python-dotenv`, dev deps `pytest ruff`. `.gitignore`: `.env`, `.venv/`, `raw/`, `build/`, `*.db`, `*.parquet`, `__pycache__/`, `.ipynb_checkpoints/`.
 - [x] **Step 2: Write failing tests**
@@ -295,13 +295,15 @@ def test_cpi_file_has_1960_to_2026():
 
 **Files:** Create `notebooks/01_pull_tmdb.ipynb`, `notebooks/02_pull_wikidata.ipynb`, `notebooks/03_build_and_export.ipynb`, `notebooks/README.md`
 
-Each notebook: mount Drive; clone the GitHub repo; `uv sync`; read `TMDB_READ_TOKEN`/`HF_TOKEN` from Colab Secrets into env; run one CLI; nothing else.
-- 01: download today's ID export to Drive once, then `--chunk N` (N typed in a form cell); shards and manifest on `Drive/llm_movies/raw/tmdb/`.
-- 02: films then people (person ids from the TMDB shards' credits), shards on `Drive/llm_movies/raw/wd_*`.
-- 03: copy shards to `/content/`, `build_db` to `/content/build/movies.db`, copy the DB to Drive, `export --push`, `report`.
+Changed 2026-11-05 by the owner's decision: Hugging Face storage only, no Google Drive. `chunk_size` is 5,000.
 
-- [ ] **Step 1:** Write the notebooks and README (run order, CPU runtime, how to resume).
+Each notebook: clone the GitHub repo; `uv sync`; read `TMDB_READ_TOKEN`/`HF_TOKEN` (write access) from Colab Secrets into env; run CLIs; nothing else. Everything works under `/content`, and raw data lives in the private repo `Tsomaros/llm-movies-raw`.
+- 01: fetch the ID export once and upload it to the repo, then `tmdb_pull --all --repo`, which uploads each finished chunk; rerun the notebook to resume.
+- 02: download the TMDB shards, `shard_ids` for films and people, then `wikidata films|people --repo`, which upload their shards every 10 minutes and at the end.
+- 03: download everything, `build_db` to `/content/build/movies.db`, `export` (`--push` behind a form cell, off by default), `report`, upload the report to the repo.
+
+- [x] **Step 1:** Write the notebooks and README (run order, CPU runtime, how to resume).
 - [ ] **Step 2:** Run 01 for chunk 0 with `--limit 500`, then 02 and 03 on that sample → a tiny HF dataset and report exist. Fix anything that breaks.
-- [ ] **Step 3:** Commit `feat(notebooks): Colab launchers`.
+- [x] **Step 3:** Commit `feat(notebooks): Colab launchers`.
 - [ ] **Step 4:** Full run (Dimitris, over several sessions): all chunks of 01, then 02, then 03. Verification: manifest lists every chunk; `reports/data_summary.md` committed.
 - [ ] **Step 5:** Decision with Dimitris from the report: `min_votes` → update `config/data.yaml`, re-run export. Commit `data: first full dataset and summary`. Phase 1 done; write the Phase 2 plan.

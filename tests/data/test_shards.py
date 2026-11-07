@@ -136,3 +136,13 @@ def test_manifest_write_is_atomic(tmp_path, monkeypatch):
     with pytest.raises(OSError):
         m.mark_done(1, {"n": 7})
     assert json.loads(path.read_text(encoding="utf-8")) == {"0": {"n": 5}}
+
+
+def test_manifest_meta_is_kept_apart_from_the_chunks_and_survives_a_reload(tmp_path):
+    m = Manifest(tmp_path / "m.json")
+    assert m.meta() is None and m.done_chunks() == set()
+    m.set_meta({"chunk_size": 5000, "chunks": 241})
+    m.mark_done(3, {"pulled": 1, "missing": 0})
+    again = Manifest(tmp_path / "m.json")
+    assert again.meta() == {"chunk_size": 5000, "chunks": 241}
+    assert again.done_chunks() == {3} and again.is_done(3) and not again.is_done(0)

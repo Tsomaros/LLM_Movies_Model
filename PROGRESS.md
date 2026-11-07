@@ -1,7 +1,12 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-14 done. Next: Task 15 (Colab launchers and the full run).
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-14 done; Task 15's notebooks done, its Colab runs not yet.
+- Before the Colab runs, three fixes the dry run found: TMDB pull is sequential (about 4.9 ids/s, so about 70 h for 241 chunks; a
+  thread pool keeping the 40/s cap would cut it to about 10 h); `release_type` misreads old films (US DVD or TV entries, types 5/6,
+  read as streaming-only; 43 such films in the 1,000-film sample, and 14% of 2000s films read festival-first, unchecked); Wikidata films
+  take about 30 s per 500 ids, about 20 h, and the owner decides whether to pull Wikidata only for films that can matter.
+- Then Task 15 Step 2 (sample run in Colab), Step 4 (full run), Step 5 (`min_votes` decision).
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
 - Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 55e5fc5; its CI run passed
   (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42055792680).
@@ -122,8 +127,16 @@
   the mini set all patterns show 0, so judge them on the real report. Mini run: 1.9 ms per film resolved, 1.8 KB of parquet per film;
   projected at most 38 minutes and 2.2 GB at 1.2M films, unmeasured at scale. The longest real mini prompt is 2,160 characters; a
   synthetic worst case reached 2,929 with long names.
-- For Task 15: notebook 03 runs `export` only after a rebuild when the config changed. The first real push needs `HF_TOKEN` and must
-  find `Tsomaros/llm-movies-data` private or absent. Rebuild is needed anyway, since `movies` gained columns in Tasks 12-13.
+- Colab and storage (owner's decision, 2026-11-05): no Google Drive. Raw data lives in the private Hugging Face dataset repo
+  `Tsomaros/llm-movies-raw`; the final dataset in `Tsomaros/llm-movies-data`. `chunk_size` is 5,000 (241 chunks). `tmdb_pull --all --repo`
+  uploads each finished chunk in one commit; Wikidata uploads its shard every 30 minutes and at the end; rerunning a notebook resumes.
+  Each notebook's steps are one `&&` chain, so a failed step stops the rest. Guards: the manifest records chunk size and count and `--all`
+  refuses a mismatch or a Hub manifest with chunks the local one lacks; the id export on the Hub is never replaced without `--replace`;
+  `shard_ids` refuses an unfinished pull unless `--partial`; uploads refuse a public repo and never send `.env`, `.git`, `.venv` or temp
+  files. `HF_TOKEN` needs write access. Real Hugging Face calls are only tested against fakes so far; Step 2 is their first real run.
+- Local dry run (2026-11-07, 1,000 films from chunks 0 and 5 of the old 50,000-id chunks): 995 movies built, 492 exported, all open
+  splits, so the locked path hasn't met real data yet. Raw TMDB is about 48 KB per film for the oldest ids and 6 KB for later ones, so
+  at least 7 GB in all. Wikidata had facts for 670 of 1,000 films and 13,816 of 24,408 people.
 - For Phase 2: measure real tokens, since digit-heavy person lines may exceed the spec's 400-600. A hidden `release_day` still leaves
   day-based values from the true day, a small conservative skew from serving's 1st of the month. An anonymised-names experiment must
   anonymise the franchise name too. Later franchise names and rare synopsis details can identify a film. `render` imports `resolve.py` and

@@ -1,5 +1,6 @@
 import json
 import math
+import re
 from datetime import date
 from pathlib import Path
 
@@ -739,3 +740,146 @@ def test_cli_reads_text_and_gzip_id_files(tmp_path, monkeypatch, sleeps):
     assert clients[1].queries == [[7, 8]]
     wikidata.main(["films", "--ids", str(ids), "--out", str(tmp_path / "txt")])  # rerun: nothing to ask
     assert clients[2].queries == []
+
+
+# ---- syncing the shard to the Hub during the pull ----
+
+
+class Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+
+class SyncRecorder:
+    """sync() copies the shard's current line count, as an upload would snapshot it."""
+
+    def __init__(self, shard, clock=None, advance=0.0, fail_on=None):
+        self.shard, self.clock, self.advance, self.fail_on = shard, clock, advance, fail_on
+        self.snapshots: list[int] = []
+
+    def __call__(self):
+        if self.fail_on == len(self.snapshots) + 1:
+            raise RuntimeError("hub down")
+        self.snapshots.append(len(self.shard.read_text(encoding="utf-8").splitlines()))
+
+
+class SlowClient(FakeWikidata):
+    """Every query takes `seconds` on the injected clock."""
+
+    def __init__(self, items, clock, seconds):
+        super().__init__(items)
+        self.clock, self.seconds = clock, seconds
+
+    def run(self, query):
+        self.clock.now += self.seconds
+        return super().run(query)
+
+
+def test_sync_runs_every_interval_and_once_at_the_end(tmp_path, sleeps):
+    clock = Clock()
+    shard = tmp_path / "wd_films.jsonl"
+    sync = SyncRecorder(shard)
+    client = SlowClient({i: f"Q{i}" for i in range(1, 7)}, clock, seconds=400)
+    run_pull("films", [1, 2, 3, 4, 5, 6], tmp_path, client, batch=1, sync=sync, sync_every=600, clock=clock)
+    # 400 s per batch: syncs after batches 2 (800 s), 4 (1600 s... counted from the last sync) and 6, then the final one
+    assert sync.snapshots == [2, 4, 6, 6]
+
+
+def test_the_final_sync_happens_even_when_the_last_batch_ended_between_syncs(tmp_path, sleeps):
+    clock = Clock()
+    sync = SyncRecorder(tmp_path / "wd_films.jsonl")
+    client = SlowClient({1: "Q1", 2: "Q2", 3: "Q3"}, clock, seconds=10)
+    run_pull("films", [1, 2, 3], tmp_path, client, batch=1, sync=sync, sync_every=600, clock=clock)
+    assert sync.snapshots == [3]  # no periodic sync (30 s run), one final upload with everything
+
+
+def test_no_sync_given_means_no_upload_and_the_old_behaviour(tmp_path, sleeps):
+    stats = run_pull("films", [1], tmp_path, FakeWikidata({1: "Q1"}))
+    assert stats == {"queried": 1, "skipped": 0}
+
+
+def test_a_failed_sync_raises_and_keeps_the_records_written_so_far(tmp_path, sleeps):
+    clock = Clock()
+    shard = tmp_path / "wd_films.jsonl"
+    sync = SyncRecorder(shard, fail_on=1)
+    client = SlowClient({i: f"Q{i}" for i in range(1, 5)}, clock, seconds=400)
+    with pytest.raises(RuntimeError, match="hub down"):
+        run_pull("films", [1, 2, 3, 4], tmp_path, client, batch=1, sync=sync, sync_every=600, clock=clock)
+    assert done_keys(shard, "tmdb_id") == {1, 2}  # stopped at the first failed sync, never swallowed
+
+
+def test_a_failed_final_sync_raises(tmp_path, sleeps):
+    sync = SyncRecorder(tmp_path / "wd_films.jsonl", fail_on=1)
+    with pytest.raises(RuntimeError, match="hub down"):
+        run_pull("films", [1], tmp_path, FakeWikidata({1: "Q1"}), sync=sync, clock=Clock())
+
+
+def test_resume_after_a_crash_asks_only_for_the_missing_ids(tmp_path, sleeps):
+    # session 1 syncs, then dies on id 3; the Hub holds what was synced (ids 1 and 2)
+    clock = Clock()
+    hub = {}
+    shard = tmp_path / "s1" / "wd_films.jsonl"
+    client = SlowClient({1: "Q1", 2: "Q2", 3: "Q3", 4: "Q4"}, clock, seconds=400)
+    original = client.run
+
+    def dying(query):
+        if '"3"' in re.search(r"VALUES \?tmdb \{([^}]*)\}", query).group(1):
+            raise SparqlError("WDQS returned HTTP 400")  # not retryable: the run stops
+        return original(query)
+
+    client.run = dying
+
+    def sync():
+        hub["wd_films.jsonl"] = shard.read_bytes()
+
+    with pytest.raises(SparqlError):
+        run_pull("films", [1, 2, 3, 4], shard.parent, client, batch=1, sync=sync, sync_every=600, clock=clock)
+    # session 2: empty disk, download the shard, run again
+    second = tmp_path / "s2"
+    second.mkdir()
+    (second / "wd_films.jsonl").write_bytes(hub["wd_films.jsonl"])
+    client2 = FakeWikidata({i: f"Q{i}" for i in range(1, 5)})
+    run_pull("films", [1, 2, 3, 4], second, client2, batch=1, clock=Clock())
+    assert client2.queries == [[3], [4]]
+    assert [r["tmdb_id"] for r in read_records(second / "wd_films.jsonl")] == [1, 2, 3, 4]
+
+
+def test_cli_repo_syncs_through_hub_store(tmp_path, monkeypatch, sleeps):
+    from llm_movies.data import hub_store
+
+    uploads, seen_every = [], []
+    real_run_pull = wikidata.run_pull
+
+    def spying_run_pull(*args, **kwargs):
+        seen_every.append(kwargs["sync_every"])
+        return real_run_pull(*args, **kwargs)
+
+    monkeypatch.setattr(wikidata, "run_pull", spying_run_pull)
+    monkeypatch.setattr(wikidata, "SparqlClient", lambda: FakeWikidata({7: "Q7", 8: "Q8"}))
+    monkeypatch.setattr(hub_store, "make_api", lambda: "api")
+    monkeypatch.setattr(hub_store, "upload", lambda folder, repo, path, **kw: uploads.append((folder, repo, path, kw)))
+    ids = tmp_path / "ids.txt"
+    ids.write_text("7\n8\n", encoding="utf-8")
+    out = tmp_path / "wd_films"
+    wikidata.main(["films", "--ids", str(ids), "--out", str(out), "--repo", "a/b", "--sync-minutes", "5"])
+    assert uploads == [(out, "a/b", "wd_films", {"api": "api", "allow_patterns": ["wd_films.jsonl"]})]
+    assert seen_every == [300.0]  # --sync-minutes 5 is 300 seconds
+    wikidata.main(["people", "--ids", str(ids), "--out", str(tmp_path / "wd_people"), "--repo", "a/b"])
+    assert uploads[1][2] == "wd_people" and uploads[1][3]["allow_patterns"] == ["wd_people.jsonl"]
+
+
+def test_cli_sync_interval_defaults_to_30_minutes(tmp_path, monkeypatch):
+    from llm_movies.data import hub_store
+
+    seen = []
+    monkeypatch.setattr(wikidata, "SparqlClient", lambda: None)
+    monkeypatch.setattr(hub_store, "make_api", lambda: "api")
+    monkeypatch.setattr(wikidata, "run_pull", lambda *a, **k: seen.append(k["sync_every"]) or {})
+    ids = tmp_path / "ids.txt"
+    ids.write_text("7\n", encoding="utf-8")
+    wikidata.main(["films", "--ids", str(ids), "--out", str(tmp_path / "o"), "--repo", "a/b"])
+    wikidata.main(["films", "--ids", str(ids), "--out", str(tmp_path / "o"), "--repo", "a/b", "--sync-minutes", "5"])
+    assert seen == [1800.0, 300.0]

@@ -15,6 +15,7 @@ from typing import Literal, Self
 
 import requests
 
+from llm_movies.data import hub_store
 from llm_movies.data.money import clean_amount, to_usd
 from llm_movies.data.shards import ShardWriter, done_keys
 from llm_movies.data.tmdb_ids import read_ids
@@ -455,10 +456,17 @@ _KINDS = {
 }
 
 
-def run_pull(kind: str, ids: list[int], out_dir: Path, client, batch: int = BATCH, pause: float = PAUSE_S) -> dict:
+def run_pull(
+    kind: str, ids: list[int], out_dir: Path, client, batch: int = BATCH, pause: float = PAUSE_S,
+    *, sync=None, sync_every: float = 600.0, clock=time.monotonic,
+) -> dict:
     """Ask Wikidata about every id not yet in the shard and write one record per id, `{"tmdb_id", "facts"}`,
     with facts None for an id that has no Wikidata item (so a resume does not ask again). A batch that still
-    fails after the client's retries is halved, down to one id; a single id that still fails raises."""
+    fails after the client's retries is halved, down to one id; a single id that still fails raises.
+
+    `sync()`, if given, is called after a batch once `sync_every` seconds (by `clock`) have passed since the last call, and once
+    at the end, after the shard is closed, even when the last batch ended between two periodic calls. It is how the shard
+    reaches the Hub during a long run; an exception from it ends the run (the records written so far stay in the shard)."""
     query_for, parse, filename = _KINDS[kind]
     shard = Path(out_dir) / filename
     done = done_keys(shard, "tmdb_id")
@@ -484,9 +492,15 @@ def run_pull(kind: str, ids: list[int], out_dir: Path, client, batch: int = BATC
             found = facts.get(i)
             writer.write({"tmdb_id": i, "facts": found.to_dict() if found else None})
 
+    last_sync = clock()
     with ShardWriter(shard) as writer:
         for start in range(0, len(todo), batch):
             fetch(todo[start : start + batch])
+            if sync is not None and clock() - last_sync >= sync_every:
+                sync()
+                last_sync = clock()
+    if sync is not None and shard.exists():
+        sync()
     return {"queried": len(todo), "skipped": len(unique) - len(todo)}
 
 
@@ -499,9 +513,19 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("kind", choices=sorted(_KINDS))
     parser.add_argument("--ids", type=Path, required=True, help="TMDB id export (.json.gz) or a text file with one id per line")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--repo", help="Hub dataset repo: upload the shard while the pull runs, and at the end (needs HF_TOKEN)")
+    parser.add_argument("--sync-minutes", type=float, default=30, help="with --repo: minutes between uploads")
     args = parser.parse_args(argv)
     ids = read_ids(args.ids) if args.ids.name.endswith(".json.gz") else _read_text_ids(args.ids)
-    print(run_pull(args.kind, ids, args.out, SparqlClient()))
+    sync = None
+    if args.repo:
+        api = hub_store.make_api()
+        filename = _KINDS[args.kind][2]
+
+        def sync():
+            hub_store.upload(args.out, args.repo, f"wd_{args.kind}", api=api, allow_patterns=[filename])
+
+    print(run_pull(args.kind, ids, args.out, SparqlClient(), sync=sync, sync_every=args.sync_minutes * 60))
 
 
 if __name__ == "__main__":

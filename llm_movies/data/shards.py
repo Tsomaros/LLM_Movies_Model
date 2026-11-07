@@ -97,6 +97,10 @@ def done_keys(path: Path, key: str) -> set:
 
 
 class Manifest:
+    """Which chunks are done (chunk -> stats), plus optional `meta` (the sizes the chunks were cut with), in one JSON file."""
+
+    META_KEY = "_meta"
+
     def __init__(self, path: Path):
         self.path = Path(path)
         self._chunks: dict[str, dict] = {}
@@ -106,8 +110,21 @@ class Manifest:
     def is_done(self, chunk: int) -> bool:
         return str(chunk) in self._chunks
 
+    def done_chunks(self) -> set[int]:
+        return {int(key) for key in self._chunks if key != self.META_KEY}
+
+    def meta(self) -> dict | None:
+        return self._chunks.get(self.META_KEY)
+
+    def set_meta(self, meta: dict) -> None:
+        self._chunks[self.META_KEY] = meta
+        self._write()
+
     def mark_done(self, chunk: int, stats: dict) -> None:
         self._chunks[str(chunk)] = stats
+        self._write()
+
+    def _write(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_name(self.path.name + ".tmp")
         tmp.write_text(json.dumps(self._chunks), encoding="utf-8")

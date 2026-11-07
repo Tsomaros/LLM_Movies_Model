@@ -1,6 +1,11 @@
 """Resumable TMDB pull: one JSONL shard per chunk of ids, safe to kill and rerun at any time.
 
 python -m llm_movies.data.tmdb_pull --ids PATH --chunk N --out DIR [--limit K]
+python -m llm_movies.data.tmdb_pull --ids PATH --all --repo REPO --out DIR [--limit K] [--max-chunks M]
+
+`--chunk N` pulls one chunk into the local folder. `--all` goes through every chunk the manifest does not list, in order,
+and after each finished chunk uploads its shard, its missing file and the manifest to the Hub repo in one commit
+(under `tmdb/`). A dead session then loses only the chunk in progress: download `tmdb/`, run again.
 """
 
 import argparse
@@ -15,12 +20,18 @@ import requests
 from dotenv import load_dotenv
 
 from llm_movies.config import load_config
+from llm_movies.data import hub_store
 from llm_movies.data.shards import Manifest, ShardWriter, done_keys
 from llm_movies.data.tmdb_ids import chunk_ids, read_ids
 
 API = "https://api.themoviedb.org/3/movie/{id}"
 APPEND = "credits,keywords,release_dates"
 MAX_BACKOFF = 60.0
+REPO_DIR = "tmdb"  # the folder of shards in the Hub repo
+
+
+class ManifestError(RuntimeError):
+    """The local or the Hub's manifest does not match this run, so writing to the Hub could overwrite good state."""
 
 
 class TmdbError(RuntimeError):
@@ -112,25 +123,115 @@ def pull_chunk(client, chunk: int, ids: list[int], out_dir: Path, manifest: Mani
     return stats
 
 
+def _check_state(manifest: Manifest, meta: dict | None, remote: dict | None) -> None:
+    if meta is not None:
+        for where, found in (("local manifest", manifest.meta()), ("Hub manifest", (remote or {}).get(Manifest.META_KEY))):
+            if found is not None and found != meta:
+                raise ManifestError(
+                    f"The {where} was made with {found} but this run has {meta}: the chunk size or the id list changed, so chunks would "
+                    "be cut differently. Nothing was pulled or uploaded."
+                )
+    if remote is not None:
+        lost = sorted({int(k) for k in remote if k != Manifest.META_KEY} - manifest.done_chunks())
+        if lost:
+            raise ManifestError(
+                f"The Hub's manifest lists chunks {lost[:5]}{'...' if len(lost) > 5 else ''} as done but the local manifest does not: "
+                "the download of tmdb/ probably failed. Uploading now would overwrite the Hub's list. Run the download again."
+            )
+
+
+def pull_all(
+    client,
+    chunks: list[list[int]],
+    out_dir: Path,
+    manifest: Manifest,
+    upload,
+    *,
+    limit: int | None = None,
+    max_chunks: int | None = None,
+    meta: dict | None = None,
+    remote: dict | None = None,
+) -> list[int]:
+    """Pull every chunk not done in the manifest, in order, and `upload({repo path: file or bytes})` after each one.
+    A chunk enters the manifest (in the upload, and on disk only once the upload worked) when it is fully pulled, so a
+    failed upload leaves it open and the rerun uploads it without refetching. With `limit` a chunk is a sample: its shard
+    and missing file are uploaded, the manifest is not touched. Stops after `max_chunks` chunks. Returns the chunks handled.
+
+    `meta` ({"chunk_size", "chunks"}) is recorded in the manifest, and the run refuses to start if the local manifest was made
+    with other sizes. `remote` is the Hub's manifest (None when there is none yet): the run refuses to start if the Hub lists a
+    done chunk that the local manifest lacks (the download of `tmdb/` failed, and uploading would overwrite the Hub's list)
+    or was made with other sizes. Both checks run before any request."""
+    out_dir = Path(out_dir)
+    _check_state(manifest, meta, remote)
+    handled = []
+    for chunk, ids in enumerate(chunks):
+        if max_chunks is not None and len(handled) >= max_chunks:
+            break
+        if manifest.is_done(chunk):
+            continue
+        stats = pull_chunk(client, chunk, ids if limit is None else ids[:limit], out_dir, manifest, mark_done=False)
+        files = {
+            f"{REPO_DIR}/tmdb_{chunk:04d}.jsonl": out_dir / f"tmdb_{chunk:04d}.jsonl",
+            f"{REPO_DIR}/missing_{chunk:04d}.txt": out_dir / f"missing_{chunk:04d}.txt",
+        }
+        if limit is None:
+            current = json.loads(manifest.path.read_text(encoding="utf-8")) if manifest.path.exists() else {}
+            recorded = {Manifest.META_KEY: meta} if meta is not None else {}
+            files[f"{REPO_DIR}/manifest.json"] = json.dumps({**current, **recorded, str(chunk): stats}).encode("utf-8")
+        upload(files)
+        if limit is None:
+            if meta is not None:
+                manifest.set_meta(meta)
+            manifest.mark_done(chunk, stats)
+        handled.append(chunk)
+    return handled
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Pull one chunk of TMDB films into a JSONL shard.")
     parser.add_argument("--ids", type=Path, required=True, help="TMDB movie id export (.json.gz)")
-    parser.add_argument("--chunk", type=int, required=True)
+    parser.add_argument("--chunk", type=int)
+    parser.add_argument("--all", action="store_true", help="every chunk not done yet, uploading to --repo after each")
+    parser.add_argument("--repo", help="Hub dataset repo for --all, e.g. Tsomaros/llm-movies-raw (needs HF_TOKEN)")
+    parser.add_argument("--max-chunks", type=int, help="with --all: stop after this many chunks")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--limit", type=int, help="pull only the first K ids of the chunk; leaves the chunk unmarked")
     args = parser.parse_args(argv)
+    if args.all == (args.chunk is not None):
+        parser.error("give exactly one of --chunk N or --all")
+    if args.all and not args.repo:
+        parser.error("--all needs --repo")
+    if args.max_chunks is not None and not args.all:
+        parser.error("--max-chunks needs --all")
 
     load_dotenv()
     token = os.environ.get("TMDB_READ_TOKEN")
     if not token:
         raise SystemExit("TMDB_READ_TOKEN is not set; put it in the environment or a .env file.")
     chunks = chunk_ids(read_ids(args.ids), load_config().chunk_size)
+    manifest = Manifest(args.out / "manifest.json")
+    if args.all:
+        api = hub_store.make_api()
+
+        def upload(files):
+            hub_store.upload_files(files, args.repo, api=api, message=f"tmdb: {', '.join(sorted(files))}")
+
+        meta = {"chunk_size": load_config().chunk_size, "chunks": len(chunks)}
+        remote = hub_store.read_json(args.repo, f"{REPO_DIR}/manifest.json", api=api)
+        try:
+            handled = pull_all(
+                TmdbClient(token), chunks, args.out, manifest, upload, limit=args.limit, max_chunks=args.max_chunks, meta=meta, remote=remote
+            )
+        except ManifestError as error:
+            raise SystemExit(str(error)) from None
+        print(json.dumps({"chunks": handled}))
+        return
     if not 0 <= args.chunk < len(chunks):
         raise SystemExit(f"Chunk {args.chunk} is out of range: {args.ids} has {len(chunks)} chunks (0..{len(chunks) - 1}).")
     ids = chunks[args.chunk]
     if args.limit is not None:
         ids = ids[: args.limit]
-    stats = pull_chunk(TmdbClient(token), args.chunk, ids, args.out, Manifest(args.out / "manifest.json"), mark_done=args.limit is None)
+    stats = pull_chunk(TmdbClient(token), args.chunk, ids, args.out, manifest, mark_done=args.limit is None)
     print(json.dumps(stats))
 
 

@@ -1,0 +1,108 @@
+# Colab launchers for the data pipeline
+
+Three notebooks run the data pipeline on Google Colab. They hold no logic: each one clones this repo, runs
+`uv sync --frozen`, reads its secrets, and then calls `python -m llm_movies....` commands. All the code is in the
+package and its tests.
+
+Nothing is kept on the Colab disk and Google Drive is not used. The raw data lives in a **private Hugging Face
+dataset repo, `Tsomaros/llm-movies-raw`**, created on the first upload. A session that dies loses only the work since the
+last upload.
+
+## Before you start
+
+- Use a **CPU runtime** (Runtime > Change runtime type > CPU) for all three. Nothing here needs a GPU.
+- Colab Secrets (key icon in the left bar, notebook access switched on). Names only, never paste a value into a notebook:
+  - `TMDB_READ_TOKEN`: the TMDB read access token (notebook 01).
+  - `HF_TOKEN`: a Hugging Face token with **write** access (all three notebooks read it, because every one talks to the repo).
+- Both Hub repos are private. `hub_store` refuses to upload to `llm-movies-raw` if it is public, and `export --push` refuses the same for
+  `Tsomaros/llm-movies-data` (its `locked.parquet` holds the test labels). If either was ever made public, make it private first.
+
+The raw repo is laid out as:
+
+```
+ids/movie_ids.json.gz         the TMDB id export, downloaded once (01)
+tmdb/                         tmdb_NNNN.jsonl, missing_NNNN.txt, manifest.json (01)
+wd_films/, wd_people/         Wikidata shards (02)
+reports/data_summary.md       the data report (03)
+```
+
+## Run order
+
+1. **`01_pull_tmdb.ipynb`**: one run pulls every chunk, in order, and uploads the shard and the manifest after each chunk.
+   Leave `LIMIT` and `MAX_CHUNKS` empty for the full run. The first run downloads the id export and keeps it in the repo; keep
+   that one export for the whole pull, because a fresh export shifts ids between chunks.
+2. **`02_pull_wikidata.ipynb`**, after 01 has finished all chunks. It builds the film and person id lists from the TMDB shards, then
+   pulls Wikidata facts for films and for people, uploading the shards every 30 minutes and at the end (each upload is a commit holding a copy of one growing file, so the interval is long to keep the repo's history small).
+3. **`03_build_and_export.ipynb`**, after 02. Downloads everything, builds `movies.db` on the Colab disk, exports the parquet dataset,
+   writes the report and uploads it. `PUSH` stays off until you want the dataset on the Hub. No copy of the database is kept; it
+   rebuilds from the repo.
+
+## What stops a bad run
+
+In Colab a failed `!command` does not stop "Run all". So each notebook's last cell is **one chain joined with `&&`**: if any step
+fails (say a download from the Hub), the rest do not run. The code also refuses to write a wrong state when run by hand:
+
+- the manifest records `chunk_size` and the chunk count, and `tmdb_pull --all` refuses to start if they differ from the current config and
+  id list;
+- before pulling, `--all` reads the Hub's manifest and refuses if it lists done chunks the local manifest lacks (the download failed);
+- `ids/movie_ids.json.gz` in the repo is never replaced by a different file: `hub_store upload` refuses unless `--replace` is given (the
+  notebooks never pass it; an identical file is a no-op, so rerunning works);
+- `shard_ids` refuses to build the id lists while the pull is unfinished, unless `--partial` (the `PARTIAL` form in notebook 02, for
+  a sample run only);
+- `hub_store` retries Hub errors for about two minutes before it raises, and never uploads `.env*`, `.git`, `.venv` or cache folders, so a
+  wrong `--dir` cannot leak a secret.
+
+## How to resume
+
+**Rerun the same notebook.** That is the whole story. It downloads what the repo holds and carries on.
+
+- **01:** finished chunks are skipped, and ids already in the shard of the chunk in progress are not asked again. The chunk in progress
+  at the moment of a crash is the only thing lost (about 2 minutes of work at the measured speed, see below).
+- **02:** both pulls skip ids already in their shard; at most the last 30 minutes are redone.
+- **03:** rebuilds from scratch each time.
+- A sample run (`LIMIT` set in 01) leaves its chunks unmarked, so a later full run completes them. `MAX_CHUNKS` stops 01 after that many
+  chunks; running it again carries on.
+
+## How many chunks, and how to find out
+
+A chunk holds 5,000 ids (`chunk_size` in `config/data.yaml`). The id export of 2026-11-05 had 1,204,179 usable ids (1,269,754 lines
+minus adult and video entries), so **241 chunks** (0 to 240, the last with 4,179 ids). The count moves a little each day, and the
+export is fixed once downloaded. To check it, in a notebook after the setup cells:
+
+```
+!uv run python -c "from llm_movies.data.tmdb_ids import read_ids; print(-(-len(read_ids('/content/raw/ids/movie_ids.json.gz')) // 5000))"
+```
+
+The pull is complete when `tmdb/manifest.json` in the raw repo has one entry per chunk; rerunning 01 with nothing left prints
+`{"chunks": []}`.
+
+## How long it takes and how big it is
+
+Measured in a local dry run on 2026-11-05 (500 ids from each of chunks 0 and 5 of the old 50,000 sized chunks, on a Windows PC; Colab's
+network will differ). Anything else is an estimate, marked so.
+
+| stage | measured | full run (estimate from the measurement) |
+| --- | --- | --- |
+| 01 export download | 28 MB in about 4 s | trivial |
+| 01 TMDB pull | 500 ids in about 103 s: about 4.9 ids/s. The pull asks one id at a time, so TMDB's response time limits it, not the 40 per second cap | about 17 minutes per 5,000-id chunk; about 70 hours for all 241 |
+| 02 id lists | 1,000 films gave 24,408 people ids in under 2 s | seconds |
+| 02 Wikidata, films | 1,000 ids in 60 s (500 per query, about 30 s each) | about 20 hours for 1.2 million ids |
+| 02 Wikidata, people | 24,408 ids in 368 s (about 66 ids/s) | about 5 hours per 1.2 million ids; the people count of the full set is unknown (24,408 people came from 1,000 films, but those films are skewed to big casts) |
+| 03 build, export, report | 995 films: build 2.5 s, export 2.3 s, report 0.5 s | not measured at scale. Earlier projections: export up to 38 minutes and 2.2 GB. Build memory could not be measured at this size |
+
+Size of the raw TMDB shards, measured: about **48 KB per film in chunk 0** (the oldest ids, which are mostly famous films with long casts)
+and about **6 KB per film in chunk 5** (2010s ids). Over 1.2 million films that is at least about 7 GB (at 6 KB; an estimate, since the
+real mix is unknown, and it could be more if the early ids are as large as chunk 0's). Notebook 03 downloads all of it to the Colab disk.
+
+Colab sessions end after a few hours at most, so expect many sessions for 01 and 02. Every full-run figure is a straight multiplication
+of a 500 or 1,000 id sample, and the first real chunks will correct it.
+
+## After the run
+
+- `reports/data_summary.md` is in the raw repo (and printed by the notebook). **Copy it into this project repo by hand** as
+  `reports/data_summary.md` and commit it; the Colab clone is never pushed back.
+- `min_votes` is decided from the report's "Score films by min_votes" table. Then change `min_votes` in `config/data.yaml`, commit and
+  push it, and re-run **notebook 03** from the top (its setup cells pull the new config; the database is not kept between sessions, so the
+  build runs again). `min_votes` only affects the export, but any other change in `config/data.yaml` (split years, `base_model_cutoff`)
+  needs the rebuild too: `export` stops if the database was built with the old values.
+- The first push needs the Colab Secret `HF_TOKEN` and the dataset repo `Tsomaros/llm-movies-data` to be **private or absent**.

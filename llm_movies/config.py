@@ -13,7 +13,7 @@ class DataConfig:
     test_from_year: int = 2019
     base_model_cutoff: date | None = None
     min_votes: int = 50
-    chunk_size: int = 50_000
+    chunk_size: int = 5_000
     mature_days: int = 182
     shrink_films: int = 4
 

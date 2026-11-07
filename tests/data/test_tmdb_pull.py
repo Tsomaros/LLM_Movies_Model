@@ -359,3 +359,311 @@ def test_cli_full_run_marks_chunk_done(monkeypatch, tmp_path, no_dotenv, capsys)
     assert client.requested == [3924, 8773, 25449, 900000, 900003, 900004]
     assert Manifest(tmp_path / "manifest.json").is_done(0)
     assert json.loads(capsys.readouterr().out) == {"pulled": 6, "missing": 0}
+
+
+# ---- pull_all: every chunk in order, uploading after each ----
+
+
+class FakeHub:
+    """The raw repo as a dict of repo path -> bytes. `fail_on` makes the nth upload (1-based) raise."""
+
+    def __init__(self, fail_on=None):
+        self.files: dict[str, bytes] = {}
+        self.commits: list[list[str]] = []
+        self.attempts = 0
+        self.fail_on = fail_on
+
+    def upload(self, files):
+        self.attempts += 1
+        if self.attempts == self.fail_on:
+            raise RuntimeError("hub down")
+        self.commits.append(sorted(files))
+        for name, source in files.items():
+            self.files[name] = source if isinstance(source, bytes) else Path(source).read_bytes()
+
+    def restore(self, out: Path) -> None:
+        """A fresh session: download tmdb/ from the repo."""
+        for name, data in self.files.items():
+            target = out / name.removeprefix("tmdb/")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+
+
+CHUNKS = [[1, 2], [3, 4], [5, 6]]
+
+
+def test_pull_all_uploads_one_commit_after_each_chunk(tmp_path):
+    hub, client = FakeHub(), FakeClient(missing={4})
+    done = tmdb_pull.pull_all(client, CHUNKS, tmp_path, Manifest(tmp_path / "manifest.json"), hub.upload)
+    assert done == [0, 1, 2] and client.requested == [1, 2, 3, 4, 5, 6]
+    assert hub.commits == [
+        ["tmdb/manifest.json", f"tmdb/missing_{c:04d}.txt", f"tmdb/tmdb_{c:04d}.jsonl"] for c in range(3)
+    ]
+    manifest = json.loads(hub.files["tmdb/manifest.json"])
+    assert manifest == {"0": {"pulled": 2, "missing": 0}, "1": {"pulled": 1, "missing": 1}, "2": {"pulled": 2, "missing": 0}}
+    assert json.loads((tmp_path / "manifest.json").read_text()) == manifest
+
+
+def test_each_commit_carries_only_the_chunks_done_so_far(tmp_path):
+    seen = []
+
+    def upload(files):
+        seen.append(sorted(json.loads(files["tmdb/manifest.json"])))
+
+    tmdb_pull.pull_all(FakeClient(), CHUNKS, tmp_path, Manifest(tmp_path / "manifest.json"), upload)
+    assert seen == [["0"], ["0", "1"], ["0", "1", "2"]]
+
+
+def test_a_dead_session_then_a_rerun_gives_every_id_once(tmp_path):
+    hub = FakeHub()
+    first = tmp_path / "session1"
+    with pytest.raises(RuntimeError, match="session died"):
+        tmdb_pull.pull_all(FakeClient(fail_after=3), CHUNKS, first, Manifest(first / "manifest.json"), hub.upload)
+    assert "tmdb/tmdb_0001.jsonl" not in hub.files  # the chunk in progress is the only thing lost
+    # the new session starts with an empty disk and only what the repo holds
+    second = tmp_path / "session2"
+    hub.restore(second)
+    client = FakeClient()
+    done = tmdb_pull.pull_all(client, CHUNKS, second, Manifest(second / "manifest.json"), hub.upload)
+    assert done == [1, 2] and client.requested == [3, 4, 5, 6]
+    every_id = [i for c in range(3) for i in shard_ids(second, c)]
+    assert every_id == [1, 2, 3, 4, 5, 6]
+    assert sorted(json.loads(hub.files["tmdb/manifest.json"])) == ["0", "1", "2"]
+
+
+def test_a_rerun_does_not_ask_again_for_an_id_that_was_a_404(tmp_path):
+    # chunk 1 is [3, 4]; 3 is gone (404, recorded in the missing file) and the session dies on the call for 4
+    manifest = Manifest(tmp_path / "manifest.json")
+    with pytest.raises(RuntimeError, match="session died"):
+        tmdb_pull.pull_all(FakeClient(missing={3}, fail_after=3), CHUNKS, tmp_path, manifest, FakeHub().upload)
+    client = FakeClient(missing={3})
+    tmdb_pull.pull_all(client, CHUNKS, tmp_path, Manifest(tmp_path / "manifest.json"), FakeHub().upload)
+    assert client.requested == [4, 5, 6]  # 3 is not asked for again
+    assert json.loads((tmp_path / "manifest.json").read_text())["1"] == {"pulled": 1, "missing": 1}
+
+
+def test_rerun_in_the_same_session_does_not_duplicate(tmp_path):
+    manifest = Manifest(tmp_path / "manifest.json")
+    with pytest.raises(RuntimeError):
+        tmdb_pull.pull_all(FakeClient(fail_after=3), CHUNKS, tmp_path, manifest, FakeHub().upload)
+    client = FakeClient()
+    tmdb_pull.pull_all(client, CHUNKS, tmp_path, Manifest(tmp_path / "manifest.json"), FakeHub().upload)
+    assert client.requested == [4, 5, 6]
+    assert [i for c in range(3) for i in shard_ids(tmp_path, c)] == [1, 2, 3, 4, 5, 6]
+
+
+def test_done_chunks_are_skipped_without_a_request_or_an_upload(tmp_path):
+    manifest = Manifest(tmp_path / "manifest.json")
+    manifest.mark_done(0, {"pulled": 2, "missing": 0})
+    hub, client = FakeHub(), FakeClient()
+    done = tmdb_pull.pull_all(client, CHUNKS, tmp_path, manifest, hub.upload)
+    assert done == [1, 2] and client.requested == [3, 4, 5, 6] and len(hub.commits) == 2
+
+
+def test_limit_leaves_chunks_unmarked_uploads_them_and_max_chunks_stops(tmp_path):
+    hub, client = FakeHub(), FakeClient()
+    manifest = Manifest(tmp_path / "manifest.json")
+    done = tmdb_pull.pull_all(client, CHUNKS, tmp_path, manifest, hub.upload, limit=1, max_chunks=2)
+    assert done == [0, 1] and client.requested == [1, 3]
+    assert hub.commits == [["tmdb/missing_0000.txt", "tmdb/tmdb_0000.jsonl"], ["tmdb/missing_0001.txt", "tmdb/tmdb_0001.jsonl"]]
+    assert not (tmp_path / "manifest.json").exists() and "tmdb/manifest.json" not in hub.files
+    # a later full run finishes the chunk without asking for the id it already has
+    full = FakeClient()
+    tmdb_pull.pull_all(full, CHUNKS, tmp_path, Manifest(tmp_path / "manifest.json"), hub.upload)
+    assert full.requested == [2, 4, 5, 6]
+    assert [i for c in range(3) for i in shard_ids(tmp_path, c)] == [1, 2, 3, 4, 5, 6]
+
+
+def test_max_chunks_without_limit_stops_after_that_many_finished_chunks(tmp_path):
+    client = FakeClient()
+    done = tmdb_pull.pull_all(client, CHUNKS, tmp_path, Manifest(tmp_path / "manifest.json"), FakeHub().upload, max_chunks=1)
+    assert done == [0] and client.requested == [1, 2]
+
+
+def test_a_failed_upload_stops_the_run_and_the_manifest_does_not_claim_the_chunk(tmp_path):
+    hub = FakeHub(fail_on=2)
+    manifest = Manifest(tmp_path / "manifest.json")
+    with pytest.raises(RuntimeError, match="hub down"):
+        tmdb_pull.pull_all(FakeClient(), CHUNKS, tmp_path, manifest, hub.upload)
+    assert json.loads((tmp_path / "manifest.json").read_text()) == {"0": {"pulled": 2, "missing": 0}}
+    assert not Manifest(tmp_path / "manifest.json").is_done(1)
+    # the retry pulls nothing new for chunk 1 (its ids are on disk) and uploads it
+    client = FakeClient()
+    tmdb_pull.pull_all(client, CHUNKS, tmp_path, Manifest(tmp_path / "manifest.json"), hub.upload)
+    assert client.requested == [5, 6]
+    assert sorted(json.loads(hub.files["tmdb/manifest.json"])) == ["0", "1", "2"]
+
+
+def test_cli_all_needs_a_repo_and_max_chunks_needs_all(tmp_path, no_dotenv, monkeypatch):
+    monkeypatch.setenv("TMDB_READ_TOKEN", TOKEN)
+    with pytest.raises(SystemExit):
+        tmdb_pull.main(["--ids", str(SAMPLE), "--all", "--out", str(tmp_path)])
+    with pytest.raises(SystemExit):
+        tmdb_pull.main(["--ids", str(SAMPLE), "--chunk", "0", "--max-chunks", "2", "--out", str(tmp_path)])
+    with pytest.raises(SystemExit):
+        tmdb_pull.main(["--ids", str(SAMPLE), "--out", str(tmp_path)])
+    with pytest.raises(SystemExit):
+        tmdb_pull.main(["--ids", str(SAMPLE), "--all", "--chunk", "0", "--repo", "a/b", "--out", str(tmp_path)])
+
+
+def test_cli_all_pulls_the_sample_and_uploads_through_hub_store(tmp_path, no_dotenv, monkeypatch, capsys):
+    from llm_movies.data import hub_store
+
+    monkeypatch.setenv("TMDB_READ_TOKEN", TOKEN)
+    client, uploads = FakeClient(), []
+    monkeypatch.setattr(tmdb_pull, "TmdbClient", lambda token: client)
+    monkeypatch.setattr(hub_store, "make_api", lambda: "api")
+    monkeypatch.setattr(hub_store, "read_json", lambda repo, path, **kw: None)
+    monkeypatch.setattr(hub_store, "upload_files", lambda files, repo, **kw: uploads.append((sorted(files), repo, kw["api"])))
+    tmdb_pull.main(["--ids", str(SAMPLE), "--all", "--repo", "a/b", "--out", str(tmp_path), "--limit", "2", "--max-chunks", "1"])
+    assert client.requested == [3924, 8773]
+    assert uploads == [(["tmdb/missing_0000.txt", "tmdb/tmdb_0000.jsonl"], "a/b", "api")]
+    assert json.loads(capsys.readouterr().out) == {"chunks": [0]}
+
+
+# ---- a wrong state must never be written: sizes, the Hub's manifest, a failed download ----
+
+META = {"chunk_size": 2, "chunks": 3}
+
+
+def test_the_manifest_records_chunk_size_and_chunk_count(tmp_path):
+    hub = FakeHub()
+    manifest = Manifest(tmp_path / "manifest.json")
+    tmdb_pull.pull_all(FakeClient(), CHUNKS, tmp_path, manifest, hub.upload, meta=META)
+    sent = json.loads(hub.files["tmdb/manifest.json"])
+    assert sent["_meta"] == META and sorted(k for k in sent if k != "_meta") == ["0", "1", "2"]
+    assert Manifest(tmp_path / "manifest.json").meta() == META
+    assert Manifest(tmp_path / "manifest.json").done_chunks() == {0, 1, 2}
+
+
+def test_a_local_manifest_with_another_chunk_size_or_count_refuses_before_any_request(tmp_path):
+    for old in ({"chunk_size": 5000, "chunks": 3}, {"chunk_size": 2, "chunks": 9}):
+        manifest = Manifest(tmp_path / "manifest.json")
+        manifest.set_meta(old)
+        hub, client = FakeHub(), FakeClient()
+        with pytest.raises(tmdb_pull.ManifestError, match="chunk"):
+            tmdb_pull.pull_all(client, CHUNKS, tmp_path, manifest, hub.upload, meta=META)
+        assert client.requested == [] and hub.commits == []
+
+
+def test_a_hub_manifest_listing_done_chunks_the_local_one_lacks_refuses(tmp_path):
+    # the download of tmdb/ failed, so the local manifest is empty while the Hub knows chunks 0 and 1
+    remote = {"_meta": META, "0": {"pulled": 2, "missing": 0}, "1": {"pulled": 2, "missing": 0}}
+    hub, client = FakeHub(), FakeClient()
+    with pytest.raises(tmdb_pull.ManifestError, match="download"):
+        tmdb_pull.pull_all(client, CHUNKS, tmp_path, Manifest(tmp_path / "manifest.json"), hub.upload, meta=META, remote=remote)
+    assert client.requested == [] and hub.commits == [] and hub.files == {}
+    assert not (tmp_path / "manifest.json").exists()
+
+
+def test_a_hub_manifest_with_other_sizes_refuses(tmp_path):
+    remote = {"_meta": {"chunk_size": 5000, "chunks": 241}}
+    with pytest.raises(tmdb_pull.ManifestError, match="chunk"):
+        tmdb_pull.pull_all(FakeClient(), CHUNKS, tmp_path, Manifest(tmp_path / "manifest.json"), FakeHub().upload, meta=META, remote=remote)
+
+
+@pytest.mark.parametrize("other", [{"chunk_size": 5000, "chunks": 3}, {"chunk_size": 2, "chunks": 9}])
+def test_a_hub_manifest_differing_in_only_one_size_refuses(tmp_path, other):
+    # each of the two numbers alone is enough to cut the chunks differently
+    with pytest.raises(tmdb_pull.ManifestError, match="chunk"):
+        tmdb_pull.pull_all(
+            FakeClient(), CHUNKS, tmp_path, Manifest(tmp_path / "manifest.json"), FakeHub().upload, meta=META, remote={"_meta": other}
+        )
+
+
+def test_a_hub_manifest_with_the_same_number_of_done_chunks_but_other_ones_refuses(tmp_path):
+    # the Hub lists chunks 0 and 1; the local disk holds 0 and 2: equal counts, yet chunk 1 would be overwritten
+    manifest = Manifest(tmp_path / "manifest.json")
+    manifest.mark_done(0, {"pulled": 2, "missing": 0})
+    manifest.mark_done(2, {"pulled": 2, "missing": 0})
+    remote = {"0": {"pulled": 2, "missing": 0}, "1": {"pulled": 2, "missing": 0}}
+    hub, client = FakeHub(), FakeClient()
+    with pytest.raises(tmdb_pull.ManifestError, match="download"):
+        tmdb_pull.pull_all(client, CHUNKS, tmp_path, manifest, hub.upload, meta=META, remote=remote)
+    assert client.requested == [] and hub.commits == []
+
+
+def test_a_hub_manifest_that_the_local_one_covers_is_fine(tmp_path):
+    hub = FakeHub()
+    manifest = Manifest(tmp_path / "manifest.json")
+    manifest.set_meta(META)
+    manifest.mark_done(0, {"pulled": 2, "missing": 0})
+    remote = {"_meta": META, "0": {"pulled": 2, "missing": 0}}
+    client = FakeClient()
+    done = tmdb_pull.pull_all(client, CHUNKS, tmp_path, manifest, hub.upload, meta=META, remote=remote)
+    assert done == [1, 2] and client.requested == [3, 4, 5, 6]
+    assert sorted(json.loads(hub.files["tmdb/manifest.json"])) == ["0", "1", "2", "_meta"]
+
+
+def test_the_first_run_has_no_hub_manifest_and_passes(tmp_path):
+    done = tmdb_pull.pull_all(FakeClient(), CHUNKS, tmp_path, Manifest(tmp_path / "manifest.json"), FakeHub().upload, meta=META, remote=None)
+    assert done == [0, 1, 2]
+
+
+class DownFakeApi:
+    """The Hub holds a manifest, but every download fails: Colab's `!cmd` would carry on to the pull."""
+
+    def __init__(self):
+        self.files = {"tmdb/manifest.json": json.dumps({"_meta": {"chunk_size": 5000, "chunks": 1}, "0": {"pulled": 5000, "missing": 0}}).encode()}
+        self.commits = []
+
+    def repo_exists(self, repo_id, repo_type=None):
+        return True
+
+    def list_repo_files(self, repo_id, repo_type=None):
+        return sorted(self.files)
+
+    def hf_hub_download(self, repo_id, filename, repo_type=None, local_dir=None):
+        if self.fail_downloads:
+            raise requests.ConnectionError("down")
+        target = Path(local_dir) / filename
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(self.files[filename])
+        return str(target)
+
+    fail_downloads = True
+
+    def create_repo(self, **kw):
+        pass
+
+    def dataset_info(self, repo_id):
+        return type("I", (), {"private": True})()
+
+    def create_commit(self, **kw):
+        self.commits.append(kw)
+
+
+def test_failed_tmdb_download_then_all_leaves_the_hub_manifest_alone_and_stops(tmp_path, no_dotenv, monkeypatch, sleeps):
+    from llm_movies.data import hub_store
+
+    api = DownFakeApi()
+    monkeypatch.setenv("TMDB_READ_TOKEN", TOKEN)
+    monkeypatch.setattr(hub_store, "make_api", lambda: api)
+    client = FakeClient()
+    monkeypatch.setattr(tmdb_pull, "TmdbClient", lambda token: client)
+    out = tmp_path / "raw" / "tmdb"
+    with pytest.raises(requests.ConnectionError):  # the download step raises, so a `&&` chain stops here
+        hub_store.main(["download", "--dir", str(out), "--path-in-repo", "tmdb"])
+    # run by hand while the Hub is still down: reading the Hub's manifest fails too, so the run stops
+    with pytest.raises(requests.ConnectionError):
+        tmdb_pull.main(["--ids", str(SAMPLE), "--all", "--repo", "a/b", "--out", str(out)])
+    # run by hand once the Hub is back but without the download: --all sees chunk 0 listed as done and refuses to start
+    api.fail_downloads = False
+    with pytest.raises(SystemExit, match="download"):
+        tmdb_pull.main(["--ids", str(SAMPLE), "--all", "--repo", "a/b", "--out", str(out)])
+    assert api.commits == [] and client.requested == [] and not (out / "manifest.json").exists()
+
+
+def test_cli_all_passes_meta_and_the_hub_manifest(tmp_path, no_dotenv, monkeypatch, capsys):
+    from llm_movies.config import load_config
+    from llm_movies.data import hub_store
+
+    monkeypatch.setenv("TMDB_READ_TOKEN", TOKEN)
+    client, uploads = FakeClient(), []
+    monkeypatch.setattr(tmdb_pull, "TmdbClient", lambda token: client)
+    monkeypatch.setattr(hub_store, "make_api", lambda: "api")
+    monkeypatch.setattr(hub_store, "read_json", lambda repo, path, **kw: None)
+    monkeypatch.setattr(hub_store, "upload_files", lambda files, repo, **kw: uploads.append(files))
+    tmdb_pull.main(["--ids", str(SAMPLE), "--all", "--repo", "a/b", "--out", str(tmp_path)])
+    sent = json.loads(uploads[0]["tmdb/manifest.json"])
+    assert sent["_meta"] == {"chunk_size": load_config().chunk_size, "chunks": 1}
