@@ -11,6 +11,7 @@ import pytest
 
 from llm_movies.config import DataConfig
 from llm_movies.data import export as export_module
+from llm_movies.data import hub_store
 from llm_movies.data.build_db import build_db
 from llm_movies.data.export import FILMS_FILE, LOCKED_FILE, export, push
 from llm_movies.prompt.render import render
@@ -313,6 +314,7 @@ def test_progress_follows_the_batch_size(mini_db, tmp_path, capsys):
 
 def test_cli_exits_on_missing_token_before_doing_anything(tmp_path, monkeypatch, mini_db):
     monkeypatch.setattr(export_module, "load_dotenv", lambda *a, **k: None)
+    monkeypatch.setattr(hub_store, "load_dotenv", lambda *a, **k: None)  # the token is read there; a real .env must not fill it
     monkeypatch.delenv("HF_TOKEN", raising=False)
     out = tmp_path / "out"
     with pytest.raises(SystemExit) as stop:
@@ -330,3 +332,43 @@ def test_cli_exports_and_pushes_with_a_fake(tmp_path, monkeypatch, mini_db):
     out = tmp_path / "out"
     export_module.main(["--db", str(mini_db), "--out", str(out), "--push"])
     assert pushed == [out] and (out / FILMS_FILE).is_file() and (out / LOCKED_FILE).is_file()
+
+
+def test_push_removes_a_line_break_around_the_token(tmp_path, monkeypatch):
+    import huggingface_hub
+
+    (tmp_path / FILMS_FILE).write_bytes(b"x")
+    (tmp_path / LOCKED_FILE).write_bytes(b"x")
+    tokens = []
+
+    class Stop(Exception):
+        pass
+
+    def fake_api(token):
+        tokens.append(token)
+        raise Stop
+
+    monkeypatch.setattr(huggingface_hub, "HfApi", fake_api)
+    monkeypatch.setenv("HF_TOKEN", "hf_abc\r\n")
+    with pytest.raises(Stop):
+        export_module.push(tmp_path)
+    assert tokens == ["hf_abc"]
+
+
+def test_cli_treats_a_blank_token_as_missing(tmp_path, monkeypatch, mini_db):
+    monkeypatch.setattr(export_module, "load_dotenv", lambda *a, **k: None)
+    monkeypatch.setattr(hub_store, "load_dotenv", lambda *a, **k: None)
+    monkeypatch.setenv("HF_TOKEN", " \r\n")
+    with pytest.raises(SystemExit, match="HF_TOKEN"):
+        export_module.main(["--db", str(mini_db), "--out", str(tmp_path / "out"), "--push"])
+
+
+def test_cli_refuses_a_bad_token_before_exporting_without_showing_it(tmp_path, monkeypatch, mini_db):
+    monkeypatch.setattr(export_module, "load_dotenv", lambda *a, **k: None)
+    monkeypatch.setattr(hub_store, "load_dotenv", lambda: None)
+    monkeypatch.setenv("HF_TOKEN", "secret\ntoken")
+    out = tmp_path / "out"
+    with pytest.raises(SystemExit) as stop:
+        export_module.main(["--db", str(mini_db), "--out", str(out), "--push"])
+    assert "secret" not in str(stop.value)
+    assert not out.exists()

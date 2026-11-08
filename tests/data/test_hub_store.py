@@ -310,3 +310,25 @@ def test_read_json_raises_when_the_hub_keeps_failing(no_sleep):
     api = FakeApi(files={"tmdb/manifest.json": b"{}"}, fail={"list_repo_files": [http_error(500)] * 20})
     with pytest.raises(requests.HTTPError):
         hub_store.read_json(DEFAULT_REPO, "tmdb/manifest.json", api=api)
+
+
+def test_a_line_break_around_the_token_is_removed(monkeypatch):
+    monkeypatch.setattr(hub_store, "load_dotenv", lambda: None)
+    monkeypatch.setenv("HF_TOKEN", "hf_abc\r\n")
+    assert hub_store.make_api().token == "hf_abc"
+
+
+def test_a_blank_token_counts_as_missing(monkeypatch):
+    monkeypatch.setattr(hub_store, "load_dotenv", lambda: None)
+    monkeypatch.setenv("HF_TOKEN", " \r\n")
+    with pytest.raises(SystemExit, match="HF_TOKEN"):
+        hub_store.make_api()
+
+
+@pytest.mark.parametrize("bad", ["secret\ntoken", "secret\r\ntoken", "secret token", "secret\ttoken", "secret\x7ftoken", "sécret"])
+def test_a_bad_token_is_refused_without_showing_it(monkeypatch, bad):
+    monkeypatch.setattr(hub_store, "load_dotenv", lambda: None)
+    monkeypatch.setenv("HF_TOKEN", bad)
+    with pytest.raises(SystemExit) as stop:
+        hub_store.make_api()
+    assert "HF_TOKEN" in str(stop.value) and "secret" not in str(stop.value) and "sécret" not in str(stop.value)

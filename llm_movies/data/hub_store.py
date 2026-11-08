@@ -16,6 +16,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
 import shutil
 import tempfile
 import time
@@ -30,14 +31,22 @@ PROTECTED = ("ids/movie_ids.json.gz",)
 RETRIES = 6  # delays 2, 4, 8, 16, 32, 64 s
 
 
+def hf_token() -> str:
+    """HF_TOKEN without the line break a pasted secret often ends in. Exits on a token requests would refuse, because
+    requests quotes the bad header, token included, in its error; this message never shows it."""
+    load_dotenv()
+    token = os.environ.get("HF_TOKEN", "").strip()
+    if not token:
+        raise SystemExit("HF_TOKEN is not set (a Hugging Face token with write access); put it in the environment or a .env file.")
+    if not re.fullmatch(r"[!-~]+", token):
+        raise SystemExit("HF_TOKEN has spaces, line breaks or other odd characters inside it (not shown here).")
+    return token
+
+
 def make_api():
     from huggingface_hub import HfApi
 
-    load_dotenv()
-    token = os.environ.get("HF_TOKEN")
-    if not token:
-        raise SystemExit("HF_TOKEN is not set (a Hugging Face token with write access); put it in the environment or a .env file.")
-    return HfApi(token=token)
+    return HfApi(token=hf_token())
 
 
 def ensure_private_repo(api, repo_id: str, private: bool = True) -> None:

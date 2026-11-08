@@ -8,6 +8,9 @@
   types 5/6 (DVD, TV) never do. Festival-first left as is: the 7 cases in the 50-film local sample were real festival films.
   Known trade-off: a US digital-only film with a cinema run abroad now reads limited/wide, not streaming-only. 429s back off
   per thread (no shared pause); revisit if Colab shows many 429s.
+- 2026-11-08: the first Colab run stopped on a TMDB token with a trailing line break, and the `requests` error printed the whole
+  token. Tokens are now stripped, and a token with inner whitespace or odd characters is refused without being shown (TMDB in
+  `TmdbClient`, Hugging Face in `hub_store.hf_token`). The owner was told to replace the exposed TMDB token and clear the Colab output.
 - Still open: Wikidata films take about 30 s per 500 ids, about 20 h; the owner decides whether to pull Wikidata only for films
   that can matter.
 - Then Task 15 Step 2 (sample run in Colab), Step 4 (full run), Step 5 (`min_votes` decision).

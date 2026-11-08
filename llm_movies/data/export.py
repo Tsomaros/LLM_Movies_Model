@@ -32,7 +32,7 @@ import pyarrow.parquet as pq
 from dotenv import load_dotenv
 
 from llm_movies.config import DataConfig, load_config
-from llm_movies.data.hub_store import ensure_private_repo
+from llm_movies.data.hub_store import ensure_private_repo, hf_token, make_api
 from llm_movies.eval.splits import assign_split
 from llm_movies.features.computed import Context
 from llm_movies.prompt.resolve import film_row, film_to_form, form_as_of, resolve
@@ -167,9 +167,7 @@ def push(out_dir: Path, repo_id: str = DEFAULT_REPO, private: bool = True, api=N
     if missing:
         raise FileNotFoundError(f"Nothing pushed: {', '.join(missing)} not found in {out_dir}")
     if api is None:
-        from huggingface_hub import HfApi
-
-        api = HfApi(token=os.environ["HF_TOKEN"])
+        api = make_api()
     ensure_private_repo(api, repo_id, private)
     api.upload_folder(
         folder_path=str(out_dir), repo_id=repo_id, repo_type="dataset", allow_patterns=[FILMS_FILE, LOCKED_FILE]
@@ -183,8 +181,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--push", action="store_true", help="upload to the Hugging Face dataset repo (needs HF_TOKEN)")
     args = parser.parse_args(argv)
     load_dotenv()
-    if args.push and not os.environ.get("HF_TOKEN"):
-        raise SystemExit("--push needs HF_TOKEN in the environment (or .env); nothing was exported.")
+    if args.push:
+        hf_token()  # before the export, so a bad token costs nothing
     export(args.db, args.out, load_config())
     if args.push:
         push(args.out)

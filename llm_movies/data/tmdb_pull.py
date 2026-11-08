@@ -16,6 +16,7 @@ import argparse
 import json
 import math
 import os
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -48,7 +49,10 @@ class TmdbError(RuntimeError):
 
 class TmdbClient:
     def __init__(self, token: str, session: requests.Session | None = None, max_per_second: float = 40, max_retries: int = 6):
-        self._token = token
+        # Pasted secrets often end in a line break, and requests quotes the bad header, token included, in its error.
+        self._token = token.strip()
+        if not re.fullmatch(r"[!-~]+", self._token):
+            raise TmdbError("The TMDB token is empty or has spaces, line breaks or other odd characters inside it (not shown here).")
         self._shared = session  # a session given here serves every thread; otherwise each thread opens its own
         self._local = threading.local()
         self.max_retries = max_retries
@@ -245,9 +249,13 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("--max-chunks needs --all")
 
     load_dotenv()
-    token = os.environ.get("TMDB_READ_TOKEN")
+    token = os.environ.get("TMDB_READ_TOKEN", "").strip()
     if not token:
         raise SystemExit("TMDB_READ_TOKEN is not set; put it in the environment or a .env file.")
+    try:
+        client = TmdbClient(token)
+    except TmdbError as error:
+        raise SystemExit(str(error)) from None
     chunks = chunk_ids(read_ids(args.ids), load_config().chunk_size)
     manifest = Manifest(args.out / "manifest.json")
     if args.all:
@@ -260,7 +268,12 @@ def main(argv: list[str] | None = None) -> None:
         remote = hub_store.read_json(args.repo, f"{REPO_DIR}/manifest.json", api=api)
         try:
             handled = pull_all(
-                TmdbClient(token), chunks, args.out, manifest, upload, limit=args.limit,
+                client,
+                chunks,
+                args.out,
+                manifest,
+                upload,
+                limit=args.limit,
                 max_chunks=args.max_chunks,
                 meta=meta,
                 remote=remote,
@@ -275,7 +288,7 @@ def main(argv: list[str] | None = None) -> None:
     ids = chunks[args.chunk]
     if args.limit is not None:
         ids = ids[: args.limit]
-    stats = pull_chunk(TmdbClient(token), args.chunk, ids, args.out, manifest, mark_done=args.limit is None, workers=args.workers)
+    stats = pull_chunk(client, args.chunk, ids, args.out, manifest, mark_done=args.limit is None, workers=args.workers)
     print(json.dumps(stats))
 
 

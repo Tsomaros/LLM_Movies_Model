@@ -776,3 +776,51 @@ def test_a_failure_cancels_the_queued_requests_of_the_window(tmp_path):
         pull_chunk(client, 0, list(range(1, 201)), tmp_path, Manifest(tmp_path / "manifest.json"), workers=2)
     assert len(client.requested) < 20  # not the 200 the window holds
     assert shard_ids(tmp_path) == [1, 2]
+
+
+# ---- a pasted token: a trailing line break must work, and the token must never reach an error message ----
+
+
+@pytest.mark.parametrize("pasted", [f"{TOKEN}\r\n", f"{TOKEN}\n", f"  {TOKEN} "])
+def test_a_line_break_around_the_token_is_removed(monkeypatch, pasted):
+    # the real requests stack up to the network, because it is requests that refuses a bad header
+    sent = []
+
+    def send(self, request, **kwargs):
+        sent.append(request.headers["Authorization"])
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b'{"id": 7}'
+        return response
+
+    monkeypatch.setattr(requests.adapters.HTTPAdapter, "send", send)
+    assert TmdbClient(pasted, max_per_second=float("inf")).movie(7) == {"id": 7}
+    assert sent == [f"Bearer {TOKEN}"]
+
+
+@pytest.mark.parametrize("bad", ["secret token", "secret\ntoken", "secret\r\ntoken", "sécret", "secret\x00token", "secret\x7ftoken", "secret\ttoken", "", " \r\n"])
+def test_a_bad_token_is_refused_without_showing_it(bad):
+    with pytest.raises(TmdbError) as err:
+        TmdbClient(bad)
+    assert "secret" not in str(err.value) and "sécret" not in str(err.value)
+
+
+def test_cli_refuses_a_bad_token_before_any_network_without_showing_it(monkeypatch, tmp_path, no_dotenv, capsys):
+    monkeypatch.setenv("TMDB_READ_TOKEN", "secret\ntoken")
+
+    def boom(*a, **k):
+        raise AssertionError("network used")
+
+    monkeypatch.setattr(requests.Session, "get", boom)
+    monkeypatch.setattr(tmdb_pull.hub_store, "make_api", boom)
+    with pytest.raises(SystemExit) as err:
+        tmdb_pull.main(["--ids", str(SAMPLE), "--all", "--repo", "a/b", "--out", str(tmp_path)])
+    assert "token" in str(err.value) and "secret" not in str(err.value)
+    assert "secret" not in "".join(capsys.readouterr())
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_cli_treats_a_blank_token_as_not_set(monkeypatch, tmp_path, no_dotenv):
+    monkeypatch.setenv("TMDB_READ_TOKEN", " \r\n")
+    with pytest.raises(SystemExit, match="is not set"):
+        tmdb_pull.main(["--ids", str(SAMPLE), "--chunk", "0", "--out", str(tmp_path)])
