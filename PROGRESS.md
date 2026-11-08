@@ -13,7 +13,8 @@
   `TmdbClient`, Hugging Face in `hub_store.hf_token`). The owner was told to replace the exposed TMDB token and clear the Colab output.
 - Still open: Wikidata films take about 30 s per 500 ids, about 20 h; the owner decides whether to pull Wikidata only for films
   that can matter.
-- Then Task 15 Step 2 (sample run in Colab), Step 4 (full run), Step 5 (`min_votes` decision).
+- 2026-11-08: Task 15 Step 2 done: the 500-film sample went through notebooks 01, 02 and 03 in Colab (export pushed, report written; 01 took under a minute). It held 499 train and 1 calibration film, so real locked films are still unexercised until the full run.
+- Next: 5 real chunks to measure speed, then Task 15 Step 4 (full run), Step 5 (`min_votes` decision).
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
 - Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 55e5fc5; its CI run passed
   (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42055792680).
