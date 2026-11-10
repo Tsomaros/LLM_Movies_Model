@@ -87,3 +87,17 @@ def test_overlapping_phrases_leave_no_fragment():
     assert mask_outcomes("An Academy Award winning drama.") == f"An {MASK} drama."
     assert mask_outcomes("An Oscar-winning drama.") == f"An {MASK} drama."
     assert mask_outcomes("A Golden Globe winning drama.") == f"A {MASK} drama."
+    assert mask_outcomes("A Golden Globe-winning drama.") == f"A {MASK} drama."
+    assert mask_outcomes("An Oscar winning drama.") == f"An {MASK} drama."
+    assert mask_outcomes("An ACADEMY AWARD-WINNING drama.") == f"An {MASK} drama."
+
+
+def test_neighbouring_phrases_each_give_one_mask():
+    # each phrase is its own mask; nothing is swallowed or left over between them
+    assert mask_outcomes("An Oscar-winning blockbuster.") == f"An {MASK} {MASK}."
+    assert mask_outcomes("Record-breaking box office, award-winning.") == f"{MASK} {MASK}, {MASK}."
+
+
+def test_plain_award_winning_and_award_names_alone_still_work():
+    assert mask_outcomes("An Oscar nominee, not a winner.") == f"An {MASK} nominee, not a winner."
+    assert mask_outcomes("Winning at the Oscar") == f"Winning at the {MASK}"
