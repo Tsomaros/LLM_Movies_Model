@@ -345,3 +345,32 @@ def test_public_model_repo_is_refused_and_model_info_is_used():
         upload_files({"runs/a.json": b"{}"}, "me/runs", api=api, repo_type="model")
     assert api.names() == ["create_repo", "model_info"]
     assert api.calls[0][1]["repo_type"] == "model"
+
+
+def test_model_repo_commit_download_and_read_json_forward_the_repo_type(tmp_path):
+    seen = []
+
+    class ModelApi(FakeApi):
+        def model_info(self, repo_id):
+            return type("Info", (), {"private": True})()
+
+        def repo_exists(self, repo_id, repo_type=None):
+            seen.append(("repo_exists", repo_type))
+            return True
+
+        def list_repo_files(self, repo_id, repo_type=None):
+            seen.append(("list_repo_files", repo_type))
+            return sorted(self.files)
+
+        def hf_hub_download(self, repo_id, filename, repo_type=None, local_dir=None):
+            seen.append(("hf_hub_download", repo_type))
+            return super().hf_hub_download(repo_id, filename, repo_type, local_dir)
+
+    api = ModelApi(files={"runs/a/state.json": b'{"step": 3}'})
+    upload_files({"runs/a/state.json": b"{}"}, "me/runs", api=api, repo_type="model")
+    commit = [kw for name, kw in api.calls if name == "create_commit"]
+    assert len(commit) == 1 and commit[0]["repo_type"] == "model"
+    assert download(tmp_path / "a", "me/runs", "runs/a", api=api, repo_type="model") == 1
+    assert hub_store.read_json("me/runs", "runs/a/state.json", api=api, repo_type="model") == {"step": 3}
+    assert {name for name, _ in seen} == {"repo_exists", "list_repo_files", "hf_hub_download"}
+    assert {t for _, t in seen} == {"model"}  # never the dataset default

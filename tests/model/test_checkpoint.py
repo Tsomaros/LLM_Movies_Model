@@ -84,6 +84,8 @@ def _predict(m, tok, prompts):
 def test_save_load_roundtrip_same_predictions(model, scaler, base, tiny_tokenizer, golden_prompts):
     hub = FakeHub()
     save_checkpoint(model, scaler, CFG, STATE, "best", api=hub)
+    fresh = build_predictor(CFG, lm=copy.deepcopy(base)).eval()  # what a load that restored nothing would give
+    assert not torch.equal(_predict(model, tiny_tokenizer, golden_prompts[:3]), _predict(fresh, tiny_tokenizer, golden_prompts[:3]))
     loaded, loaded_scaler, state = load_checkpoint(CFG, "best", api=hub, lm=base)
     prompts = golden_prompts[:3]
     expected = _predict(model, tiny_tokenizer, prompts)
@@ -166,6 +168,11 @@ def test_restore_training_state_brings_back_optimizer_and_rngs(model, scaler):
     sched2 = torch.optim.lr_scheduler.StepLR(opt2, step_size=1, gamma=0.5)
     assert restore_training_state(CFG, api=hub, optimizer=opt2, lr_scheduler=sched2, grad_scaler=gs)
     assert (random.random(), np.random.rand(), torch.rand(1).item()) == expected
-    assert opt2.state_dict()["state"].keys() == opt.state_dict()["state"].keys()
+    s1, s2 = opt.state_dict()["state"], opt2.state_dict()["state"]
+    assert s1.keys() == s2.keys() and len(s1) == len(params)
+    for i in s1:  # the AdamW moments and step count, not just which parameters have state
+        assert s1[i]["step"] == s2[i]["step"] == 1
+        assert torch.equal(s1[i]["exp_avg"], s2[i]["exp_avg"]) and torch.equal(s1[i]["exp_avg_sq"], s2[i]["exp_avg_sq"])
+        assert s2[i]["exp_avg"].abs().sum() > 0
     assert sched2.last_epoch == sched.last_epoch and opt2.param_groups[0]["lr"] == opt.param_groups[0]["lr"]
     assert restore_training_state(CFG, api=FakeHub()) is False
