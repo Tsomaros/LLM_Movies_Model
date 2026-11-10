@@ -5,7 +5,6 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from llm_movies.eval import probe
 from llm_movies.eval.probe import (
     director_probe,
     empirical_cutoff,
@@ -33,7 +32,12 @@ CPI = {2010: 80.0, 2017: 90.0, 2025: 100.0}
         ("2.5mn", 2.5e6),
         ("3B", 3e9),
         (" 480", 480),
-        ("about $1.2-1.5 billion", 1.2),  # first number only; a range is not scaled
+        ("about $1.2-1.5 billion", 1.2e9),  # a range's first number inherits the second one's scale
+        ("1.2 to 1.5 billion", 1.2e9),
+        ("$300-400 thousand", 3e5),
+        ("85 - 3", 85),
+        ("$300 mil", 3e8),
+        ("$2 mln", 2e6),
         ("$1,200,000,000 worldwide", 1.2e9),
         ("$.5 million", 5e5),
         ("I don't know", None),
@@ -43,25 +47,45 @@ CPI = {2010: 80.0, 2017: 90.0, 2025: 100.0}
         ("   ", None),
         ("million", None),
         ("85 Mondays", 85),  # "M" followed by letters is not a scale
+        ("12,345.67", 12345.67),
+        ("1.5 Billion", 1.5e9),
+        ("grossed 85M.", 8.5e7),
+        ("5 B", 5e9),
+        ("1980s", 1980),  # trailing letters must not make the regex give back digits
+        ("10x", 10),
     ],
 )
 def test_parse_money_answer_table(text, expected):
-    assert parse_money(text) == pytest.approx(expected) if expected is not None else parse_money(text) is None
+    got = parse_money(text)
+    if expected is None:
+        assert got is None
+    else:
+        assert got is not None and got == pytest.approx(expected, rel=1e-12)  # exact up to float rounding
 
 
 @pytest.mark.parametrize("text", ["1e999999999", "9" * 400, "\x00\u200b$", None])
+def test_revenue_probe_missing_cpi_year_is_named():
+    films = pd.DataFrame({"tmdb_id": [1], "title": ["A"], "year": [1999], "revenue_2025": [1e8]})
+    with pytest.raises(ValueError, match="1999"):
+        revenue_probe(lambda ps: ["1"] * len(ps), films, CPI)
+
+
 def test_parse_money_never_raises(text):
     parse_money(text)
 
 
 def test_revenue_probe_known_within_2x():
     films = pd.DataFrame({
-        "tmdb_id": [1, 2, 3, 4], "title": ["A", "B", "C", "D"], "year": [2010, 2010, 2017, 2017],
-        # nominal = revenue_2025 * cpi[year] / cpi[2025]: 100M*0.8=80M, 100M*0.8=80M, 200M*0.9=180M, 200M*0.9=180M
-        "revenue_2025": [1e8, 1e8, 2e8, 2e8],
+        "tmdb_id": [1, 2, 3, 4, 5, 6], "title": ["A", "B", "C", "D", "E", "F"], "year": [2010, 2010, 2017, 2017, 2010, 2017],
+        # nominal = revenue_2025 * cpi[year] / cpi[2025]: 100M*0.8=80M, 100M*0.8=80M, 200M*0.9=180M, 200M*0.9=180M,
+        # 100M*0.8=80M, 200M*0.9=180M
+        "revenue_2025": [1e8, 1e8, 2e8, 2e8, 1e8, 2e8],
     })
     seen = []
-    answers = {"2010 film \"A\"": "150 million", "2010 film \"B\"": "170 million", "2017 film \"C\"": "$90M", "2017 film \"D\"": "no idea"}
+    answers = {
+        "2010 film \"A\"": "150 million", "2010 film \"B\"": "170 million", "2017 film \"C\"": "$90M",
+        "2017 film \"D\"": "no idea", "2010 film \"E\"": "$160 million", "2017 film \"F\"": "$89M",
+    }
 
     def generate(prompts):
         seen.extend(prompts)
@@ -69,11 +93,14 @@ def test_revenue_probe_known_within_2x():
 
     out = revenue_probe(generate, films, CPI)
     assert seen[0] == 'The 2010 film "A" earned a worldwide box office gross of $'
-    assert list(out["tmdb_id"]) == [1, 2, 3, 4]
-    assert out["nominal_usd"].tolist() == pytest.approx([8e7, 8e7, 1.8e8, 1.8e8])
-    # 150M is within 2x of 80M (<=160M); 170M is not; 90M is exactly the 2x edge of 180M; None is never known
-    assert out["known"].tolist() == [True, False, True, False]
-    assert out["guess_usd"].isna().tolist() == [False, False, False, True]
+    assert list(out["tmdb_id"]) == [1, 2, 3, 4, 5, 6]
+    assert list(out.columns) == ["tmdb_id", "answer", "guess_usd", "nominal_usd", "known"]
+    assert out["nominal_usd"].tolist() == pytest.approx([8e7, 8e7, 1.8e8, 1.8e8, 8e7, 1.8e8])
+    # 150M is within 2x of 80M (<=160M); 170M is not; 90M is exactly the lower 2x edge of 180M; 160M exactly the upper
+    # edge of 80M; 89M is just under the lower edge; None is never known
+    assert out["known"].tolist() == [True, False, True, False, True, False]
+    assert out["guess_usd"].isna().tolist() == [False, False, False, True, False, False]
+    assert out["guess_usd"].dropna().tolist() == [1.5e8, 1.7e8, 9e7, 1.6e8, 8.9e7]
 
 
 def _directors(rows):
@@ -87,11 +114,22 @@ def test_director_probe_accents_folded():
         (3, "Duo", 2017, date(2017, 1, 1), ["Ann Smith", "Bob Łukasz"]),
         (4, "Jr", 2012, date(2012, 1, 1), ["Robert Downey Jr."]),
         (5, "Sub", 2012, date(2012, 1, 1), ["Ann Lee"]),
+        (6, "Three", 2012, date(2012, 1, 1), ["Henry Ford III"]),
+        (7, "Senior", 2012, date(2012, 1, 1), ["Tom Gray Sr."]),
+        (8, "Second", 2012, date(2012, 1, 1), ["Al Roe II"]),
+        (9, "Reverse", 2012, date(2012, 1, 1), ["Pedro Almodovar"]),  # accent in the answer, none in the database
+        (10, "Suffix", 2012, date(2012, 1, 1), ["Jo Brown Jr."]),  # the suffix is not the last name
     ])
-    answers = {"Roma": " ALFONSO CUARON.", "Elle": " Someone Else", "Duo": " Bob Lukasz and friends", "Jr": " Downey", "Sub": " Leeds"}
+    answers = {
+        "Roma": " ALFONSO CUARON.", "Elle": " Someone Else", "Duo": " Bob Lukasz and friends", "Jr": " Downey",
+        "Sub": " Leeds", "Three": " Ford", "Senior": " Gray!", "Second": " Roe", "Reverse": " Pedro Almodóvar",
+        "Suffix": " Jr.",
+    }
     out = director_probe(lambda ps: [next(v for k, v in answers.items() if f'"{k}"' in p) for p in ps], films)
-    assert out["known"].tolist() == [True, False, True, True, False]  # "Leeds" does not contain the word "lee"
-    assert not {"revenue", "score", "vote_count", "vote_average"} & set(out.columns)
+    assert out["known"].tolist() == [True, False, True, True, False, True, True, True, True, False]  # "Leeds" lacks the word "lee"
+    # no revenue, score or vote column, and the film's own year and date pass through
+    assert list(out.columns) == ["tmdb_id", "year", "release_date", "answer", "known"]
+    assert out["release_date"].tolist() == list(films["release_date"])
 
 
 def _results(per_quarter):
@@ -117,6 +155,12 @@ def test_empirical_cutoff_on_synthetic_curve():
     curve[(2022, 4)] = (6, 10)
     assert empirical_cutoff(_results(curve)) == date(2022, 12, 31)
 
+
+def test_empirical_cutoff_baseline_and_quarter_ends():
+    # baseline quarters average (1.0 + 0.2) / 2 = 0.6, so the threshold is 0.3; later or earlier quarters are not baseline
+    base = {(2019, 1): (10, 10), (2020, 2): (2, 10), (2018, 1): (0, 10), (2021, 1): (3, 10), (2021, 3): (2, 10)}
+    assert empirical_cutoff(_results(base)) == date(2021, 3, 31)  # Q1 ends on the 31st of March; Q3 (0.2) is below 0.3
+    assert empirical_cutoff(_results({**base, (2021, 3): (3, 10)})) == date(2021, 9, 30)
 
 def test_empirical_cutoff_needs_baseline():
     with pytest.raises(ValueError):
@@ -177,8 +221,13 @@ def test_make_generator_left_pads_and_returns_only_new_text(tiny_lm, tiny_tokeni
     together = generate([short, long_, short])
     assert len(together) == 3
     assert tok.padding_side == "right" and tok.pad_token is None  # the caller's tokenizer is not changed
-    # left padding keeps a prompt's answer independent of its batch neighbours; the prompt itself is not echoed
-    assert together[0] == together[2] == generate([short])[0]
-    assert together[1] == generate([long_])[0]
-    assert not together[1].startswith(long_)
-    assert probe.make_generator is make_generator
+
+    def alone(prompt):  # greedy continuation of one unpadded prompt, new tokens only, computed without make_generator
+        enc = tiny_tokenizer(prompt, return_tensors="pt")
+        ids = tiny_lm.generate(**enc, max_new_tokens=4, do_sample=False, pad_token_id=tiny_tokenizer.pad_token_id)
+        return tiny_tokenizer.decode(ids[0, enc["input_ids"].shape[1]:], skip_special_tokens=True)
+
+    # left padding keeps a prompt's answer equal to its unpadded answer, whatever its batch neighbours
+    assert together == [alone(short), alone(long_), alone(short)]
+    # the prompt itself is not echoed: at most max_new_tokens tokens come back
+    assert all(len(tiny_tokenizer(t)["input_ids"]) <= 4 for t in together)

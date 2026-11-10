@@ -36,11 +36,14 @@ BASELINE_YEARS = (2019, 2020)
 CUTOFF_FRACTION = 0.5
 
 _SCALES = {
-    "thousand": 1e3, "k": 1e3, "million": 1e6, "m": 1e6, "mn": 1e6, "billion": 1e9, "b": 1e9, "bn": 1e9,
+    "thousand": 1e3, "k": 1e3, "million": 1e6, "mil": 1e6, "mln": 1e6, "m": 1e6, "mn": 1e6,
+    "billion": 1e9, "b": 1e9, "bn": 1e9,
 }
-_MONEY = re.compile(
-    r"(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)\s*(thousand|million|billion|mn|bn|k|m|b)?(?![A-Za-z])", re.IGNORECASE
-)
+# The number is atomic: "1980s" is 1980 and "10x" is 10, never a shorter prefix of the digits.
+_NUM = r"(?>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)"
+_SCALE = r"(?:thousand|million|billion|mil|mln|mn|bn|k|m|b)(?![A-Za-z])"
+_MONEY = re.compile(rf"({_NUM})(?:\s*({_SCALE}))?", re.IGNORECASE)
+_RANGE_TAIL = re.compile(rf"\s*(?:-|–|—|to|or|and)\s*\$?\s*{_NUM}\s*({_SCALE})", re.IGNORECASE)
 _SUFFIXES = {"jr", "sr", "ii", "iii"}
 
 
@@ -52,6 +55,9 @@ def parse_money(text: str) -> float | None:
             return None
         value = float(match.group(1).replace(",", ""))
         scale = match.group(2)
+        if scale is None:  # a range such as "1.2-1.5 billion" shares the scale of its second number
+            tail = _RANGE_TAIL.match(text, match.end())
+            scale = tail.group(1) if tail else None
         return value * _SCALES[scale.lower()] if scale else value
     except (ValueError, OverflowError, AttributeError, TypeError):
         return None
@@ -94,6 +100,8 @@ def revenue_probe(
     answers = _generate(generate, prompts)
     rows = []
     for r, answer in zip(films.itertuples(), answers):
+        if int(r.year) not in cpi or 2025 not in cpi:
+            raise ValueError(f"The CPI table has no entry for {int(r.year) if int(r.year) not in cpi else 2025}.")
         nominal = float(r.revenue_2025) * cpi[int(r.year)] / cpi[2025]
         guess = parse_money(answer)
         known = guess is not None and nominal / 2 <= guess <= nominal * 2
@@ -197,7 +205,7 @@ def load_director_films(db: Path, n: int, seed: int = 0, min_votes: int = 100) -
         df = pd.read_sql_query(
             "SELECT m.tmdb_id, m.title, m.year, m.release_date, p.name AS director FROM movies m "
             "JOIN credits c ON c.movie_id = m.tmdb_id AND c.role = 'director' JOIN people p ON p.id = c.person_id "
-            "WHERE m.title IS NOT NULL AND m.release_date IS NOT NULL AND p.name IS NOT NULL AND m.vote_count >= ? "
+            "WHERE m.title IS NOT NULL AND m.year IS NOT NULL AND m.release_date IS NOT NULL AND p.name IS NOT NULL AND m.vote_count >= ? "
             "ORDER BY m.tmdb_id, c.ord",
             con,
             params=(min_votes,),

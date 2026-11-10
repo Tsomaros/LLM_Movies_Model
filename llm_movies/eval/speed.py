@@ -2,7 +2,7 @@
 
 python -m llm_movies.eval.speed --model ID --max-len L [--batch 13] [--no-int8]
 
-    cpu_forward_seconds(model, max_len, batch=13, int8=True) -> float, the median of 5 timed forward passes
+    cpu_forward_seconds(model, max_len, batch=13, int8=True) -> float, the median of 5 timed forward passes after one untimed warm-up
 
 `model` is a Hub id (str) or a ready (model, tokenizer) pair. Batch 13 = one prediction plus 12 effect groups. Linear
 layers are dynamically quantized to int8 when `int8` is true.
@@ -36,6 +36,7 @@ def cpu_forward_seconds(model, max_len: int, batch: int = 13, int8: bool = True)
     mask = torch.ones_like(ids)
     times = []
     with torch.inference_mode():
+        model(input_ids=ids, attention_mask=mask)  # untimed warm-up: first-call allocation and kernel setup
         for _ in range(RUNS):
             start = time.perf_counter()
             model(input_ids=ids, attention_mask=mask)
@@ -50,7 +51,10 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--batch", type=int, default=13)
     p.add_argument("--no-int8", action="store_true")
     args = p.parse_args(argv)
-    print(f"{cpu_forward_seconds(args.model, args.max_len, args.batch, not args.no_int8):.2f} s per forward pass")
+    import torch
+
+    seconds = cpu_forward_seconds(args.model, args.max_len, args.batch, not args.no_int8)
+    print(f"{seconds:.2f} s per forward pass ({torch.get_num_threads()} torch threads)")
 
 
 if __name__ == "__main__":
