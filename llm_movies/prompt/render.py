@@ -22,6 +22,7 @@ import calendar
 from datetime import date
 from typing import Any
 
+from llm_movies.prompt.outcome_words import mask_outcomes
 from llm_movies.prompt.resolve import ResolvedFilm
 
 OPTIONAL_GROUPS = (
@@ -88,7 +89,7 @@ def _release(r: ResolvedFilm, hidden: frozenset[str]) -> str:
 
 
 def _synopsis(text: str | None) -> str:
-    words = (text or "").split()
+    words = (mask_outcomes(text) or "").split()
     if not words:
         return NOT_GIVEN
     if len(words) > SYNOPSIS_WORDS:
@@ -138,7 +139,7 @@ def render(r: ResolvedFilm, hidden: frozenset[str] = frozenset()) -> str:
         f"Themes: {_list(r.themes)}",
         f"Budget: {money(r.budget) if show('budget') else NOT_GIVEN}",
         f"Competition: {_plural(r.competition, 'big-budget film')} within 14 days",
-        f"Tagline: {_value(r.tagline) if show('tagline') else NOT_GIVEN}",
+        f"Tagline: {_value(mask_outcomes(r.tagline)) if show('tagline') else NOT_GIVEN}",
         f"Synopsis: {_synopsis(r.synopsis) if show('synopsis') else NOT_GIVEN}",
     ]
     return "\n".join(lines)

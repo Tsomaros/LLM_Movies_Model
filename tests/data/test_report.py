@@ -179,3 +179,13 @@ def test_report_on_the_mini_export_never_names_a_locked_film(tmp_path):
     audited = text.split("Outcome-word audit")[1]
     assert not any(f" {i}," in audited or f" {i} " in audited or f"| {i}" in audited for i in locked_ids)
     assert "| min_votes |" in text and "| holdout | 2 |" in text
+
+
+def test_report_audit_uses_shared_patterns(hand_db, tmp_path):
+    from llm_movies.prompt.outcome_words import OUTCOME_PATTERNS
+
+    text = report(hand_db, parquet_of(tmp_path / "f.parquet", []), CFG)
+    audited = text.split("Outcome-word audit")[1]
+    for label, _ in OUTCOME_PATTERNS:
+        assert f"| {label} |" in audited
+    assert "| dollar figure |" in audited

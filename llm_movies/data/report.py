@@ -19,6 +19,7 @@ from pathlib import Path
 import pyarrow.parquet as pq
 
 from llm_movies.config import DataConfig, load_config
+from llm_movies.prompt.outcome_words import OUTCOME_PATTERNS
 
 BATCH_ROWS = 50_000
 OPEN_SPLITS = ("train", "calibration", "validation")
@@ -43,20 +44,9 @@ _COVERAGE = (
     ("source_strength", lambda f: f["source_strength"] is not None),
 )
 
-# Word-bounded, case-insensitive
-_AUDIT = (
-    ("box office", r"\bbox[\s-]office\b"),
-    ("gross, grossed, grossing", r"\bgross(?:ed|ing)?\b"),
-    ("dollar figure", r"\$\s?\d[\d,]*(?:\.\d+)?(?:\s?(?:million|billion|thousand)\b)?"),
-    ("Oscar", r"\boscars?\b"),
-    ("Academy Award", r"\bacademy awards?\b"),
-    ("award-winning", r"\baward[\s-]winning\b"),
-    ("blockbuster", r"\bblockbusters?\b"),
-    ("Golden Globe", r"\bgolden globes?\b"),
-    ("record-breaking", r"\brecord[\s-]breaking\b"),
-    ("smash hit", r"\bsmash hits?\b"),
-)
-_AUDIT = tuple((label, re.compile(pattern, re.IGNORECASE)) for label, pattern in _AUDIT)
+# The outcome patterns are shared with the prompt's masking; the dollar figure is audited here only (kept third in the table)
+_DOLLAR = ("dollar figure", re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?(?:\s?(?:million|billion|thousand)\b)?", re.IGNORECASE))
+_AUDIT = (*OUTCOME_PATTERNS[:2], _DOLLAR, *OUTCOME_PATTERNS[2:])
 
 
 def _percent(count: int, total: int) -> str:
