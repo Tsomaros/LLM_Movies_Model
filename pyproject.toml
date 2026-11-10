@@ -14,11 +14,29 @@ dependencies = [
     "requests>=2.34.2",
 ]
 
+[project.optional-dependencies]
+train = [
+    "transformers>=5.22.2",
+    "peft>=0.21.2",
+    "accelerate>=1.15.0",
+    "wandb>=0.31.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.3",
+    "tokenizers>=0.23.3",
+    "torch>=2.15.0",
 ]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [build-system]
 requires = ["uv_build>=0.13.4,<0.14.0"]
