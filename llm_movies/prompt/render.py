@@ -17,13 +17,15 @@ source strength (hiding `source_strength` alone keeps the source), hiding `relea
 weekday "not given".
 `anonymize=True` swaps names for labels, keeping every record: a person becomes `Person N` (numbered by first appearance in
 line order; the same cleaned name keeps its number, a nameless person gets a fresh one), a company `Company N` (same rule),
-the distributor `Distributor`, the franchise `Franchise`. Tagline and synopsis are free text and are left as they are. A hidden group and a missing one produce the same text. There is no title, and no id is ever stored in a
+the distributor `Distributor`, the franchise `Franchise`. Inside the tagline and synopsis, this film's own person, company, distributor and franchise names (exact, case-sensitive, not part
+of a longer word, longest first, one pass) get the same labels; names of a hidden group take the next free numbers. A hidden group and a missing one produce the same text. There is no title, and no id is ever stored in a
 ResolvedFilm, so none can reach the text.
 """
 
 from __future__ import annotations
 
 import calendar
+import re
 from collections.abc import Callable
 from datetime import date
 from typing import Any
@@ -114,8 +116,26 @@ def _release(r: ResolvedFilm, hidden: frozenset[str]) -> str:
     return f"Release: {r.release_day} {month} {r.release_year}, {weekday}"
 
 
-def _synopsis(text: str | None) -> str:
-    words = (mask_outcomes(text) or "").split()
+def _label_names(r: ResolvedFilm, people: _Namer, companies: _Namer) -> Callable[[str], str]:
+    """Text -> text with this film's names swapped for the labels used in the record lines (people win over companies)."""
+    labels: dict[str, str] = {}
+    for name, label in ((r.franchise, GENERIC_FRANCHISE), (r.distributor and r.distributor["name"], "Distributor")):
+        if name and _clean(name):
+            labels[_clean(name)] = label
+    for record in r.companies:  # a seen name keeps its number; an unshown one takes the next free number
+        if _clean(record["name"] or ""):
+            labels[_clean(record["name"])] = companies(record["name"])
+    for record in [r.director, *r.writers, *r.cast, *r.producers, r.composer]:
+        if record is not None and _clean(record["name"] or ""):
+            labels[_clean(record["name"])] = people(record["name"])
+    if not labels:
+        return lambda text: text
+    pattern = re.compile(r"(?<!\w)(?:" + "|".join(re.escape(n) for n in sorted(labels, key=len, reverse=True)) + r")(?!\w)")
+    return lambda text: pattern.sub(lambda m: labels[m.group()], text)
+
+
+def _synopsis(text: str | None, swap: Callable[[str], str] = str) -> str:
+    words = swap(_clean(mask_outcomes(text) or "")).split()
     if not words:
         return NOT_GIVEN
     if len(words) > SYNOPSIS_WORDS:
@@ -166,7 +186,10 @@ def render(r: ResolvedFilm, hidden: frozenset[str] = frozenset(), *, anonymize: 
         f"Themes: {_list(r.themes) if show('themes') else NOT_GIVEN}",
         f"Budget: {money(r.budget) if show('budget') else NOT_GIVEN}",
         f"Competition: {_plural(r.competition, 'big-budget film')} within 14 days",
-        f"Tagline: {_value(mask_outcomes(r.tagline)) if show('tagline') else NOT_GIVEN}",
-        f"Synopsis: {_synopsis(r.synopsis) if show('synopsis') else NOT_GIVEN}",
+    ]
+    swap = _label_names(r, people, companies) if anonymize else str  # after the lines, so their numbers come first
+    lines += [
+        f"Tagline: {_value(swap(_clean(mask_outcomes(r.tagline) or ''))) if show('tagline') else NOT_GIVEN}",
+        f"Synopsis: {_synopsis(r.synopsis, swap) if show('synopsis') else NOT_GIVEN}",
     ]
     return "\n".join(lines)

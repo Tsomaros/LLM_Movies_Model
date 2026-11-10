@@ -406,3 +406,72 @@ def test_anonymize_keeps_records(mini_con, mini_ctx):
         assert a == b, a  # everything but the labels is identical, including " · age N" after the director's record
     assert r.cast and len(r.cast) > 1  # a real multi-record line was compared
     assert "age 54" in render(film(), anonymize=True) and "Budget: $50M" in render(film(), anonymize=True)
+
+
+# ---- anonymize also covers this film's names inside tagline and synopsis ----
+
+
+def _lines(text):
+    return dict(line.split(": ", 1) for line in text.splitlines())
+
+
+def test_anonymize_replaces_names_in_free_text():
+    r = film(
+        tagline="Dee Rector presents Studio One and Big Dist",
+        synopsis="Lead Actor meets Second Actor in the world of Saga. Dee Rector films it for Studio Two.",
+    )
+    text = render(r, anonymize=True)
+    lines = _lines(text)
+    # lines: director Person 1, writers 2 and 3, cast 4 and 5; companies 1 and 2
+    assert lines["Tagline"] == "Person 1 presents Company 1 and Distributor"
+    assert lines["Synopsis"] == "Person 4 meets Person 5 in the world of Franchise. Person 1 films it for Company 2."
+    plain = _lines(render(r))
+    assert plain["Tagline"] == "Dee Rector presents Studio One and Big Dist"  # default output untouched
+    assert plain["Synopsis"].startswith("Lead Actor meets")
+
+
+def test_anonymize_free_text_word_bounded():
+    r = film(tagline="Sagaland and saga and Saga.", synopsis="Dee Rectors film. dee rector. Mr Dee Rector, Lead Actors, Lead Actor.")
+    lines = _lines(render(r, anonymize=True))
+    assert lines["Tagline"] == "Sagaland and saga and Franchise."
+    assert lines["Synopsis"] == "Dee Rectors film. dee rector. Mr Person 1, Lead Actors, Person 4."
+
+
+def test_anonymize_free_text_longest_name_first():
+    r = film(
+        companies=[company("Pixar"), company("Pixar Animation Studios")], distributor=company("Lucasfilm Ltd."),
+        tagline="Pixar Animation Studios and Pixar, by Lucasfilm Ltd.", synopsis="Pixar Animation Studios",
+    )
+    lines = _lines(render(r, anonymize=True))
+    assert lines["Tagline"] == "Company 2 and Company 1, by Distributor"
+    assert lines["Synopsis"] == "Company 2"
+    # one pass: the label "Person 2" given to the first writer is not replaced again, although "Person 3" is a name of this film
+    r = film(writers=[person("Person 3"), person("Wri Ter")], tagline="Person 3 and Wri Ter", synopsis="x")
+    assert _lines(render(r, anonymize=True))["Tagline"] == "Person 2 and Person 3"
+
+
+def test_anonymize_free_text_hidden_group_still_replaced():
+    r = film(
+        tagline="Pro Ducer and Com Poser and Studio One and Big Dist",
+        synopsis="Wri Ter wrote it in Saga; Studio Two paid.",
+    )
+    hidden = frozenset({"writers", "producers", "composer", "companies", "distributor", "franchise"})
+    text = render(r, hidden, anonymize=True)
+    for name in ("Pro Ducer", "Com Poser", "Wri Ter", "Studio One", "Studio Two", "Big Dist", "Saga"):
+        assert name not in text
+    lines = _lines(text)
+    assert lines["Writers"] == lines["Producers"] == lines["Composer"] == lines["Companies"] == lines["Distributor"] == "not given"
+    assert lines["Franchise"] == "not given"
+    # director 1, cast 2 and 3 in the lines; hidden people take the next free numbers
+    labels = re.findall(r"(?:Person|Company) \d+|Distributor|Franchise", lines["Tagline"] + " | " + lines["Synopsis"])
+    assert "Distributor" in labels and "Franchise" in labels
+    people = [x for x in labels if x.startswith("Person")]
+    assert len(people) == 3 and all(int(p.split()[1]) >= 4 for p in people)
+    assert len({x for x in labels if x.startswith("Company")}) == 2
+
+
+def test_anonymize_free_text_person_label_wins_over_company_and_blank_names_skipped():
+    r = film(companies=[company("Dee Rector")], cast=[person(""), person("Lead Actor")], tagline="Dee Rector", synopsis="a  b")
+    lines = _lines(render(r, anonymize=True))
+    assert lines["Tagline"] == "Person 1"
+    assert lines["Synopsis"] == "a b"
