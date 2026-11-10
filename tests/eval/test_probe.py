@@ -64,14 +64,14 @@ def test_parse_money_answer_table(text, expected):
 
 
 @pytest.mark.parametrize("text", ["1e999999999", "9" * 400, "\x00\u200b$", None])
+def test_parse_money_never_raises(text):
+    parse_money(text)
+
+
 def test_revenue_probe_missing_cpi_year_is_named():
     films = pd.DataFrame({"tmdb_id": [1], "title": ["A"], "year": [1999], "revenue_2025": [1e8]})
     with pytest.raises(ValueError, match="1999"):
         revenue_probe(lambda ps: ["1"] * len(ps), films, CPI)
-
-
-def test_parse_money_never_raises(text):
-    parse_money(text)
 
 
 def test_revenue_probe_known_within_2x():
