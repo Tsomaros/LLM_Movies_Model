@@ -71,3 +71,12 @@ def test_render_masks_before_the_word_cut():
     out = render(film(synopsis=synopsis)).splitlines()[-1]
     assert out.startswith(f"Synopsis: {MASK} w0 ")
     assert len(out.removeprefix("Synopsis: ").split()) == 120
+
+
+def test_phrase_straddling_the_cut_is_still_masked():
+    # "box" is word 120 and "office" word 121: cutting first would leave a bare "box..." and the phrase would escape the mask;
+    # masking first folds both words into one MASK token, which is word 120.
+    synopsis = " ".join(f"w{i}" for i in range(119)) + " box office tail words"
+    out = render(film(synopsis=synopsis)).splitlines()[-1]
+    assert out.endswith(f" w118 {MASK}...")
+    assert "box" not in out

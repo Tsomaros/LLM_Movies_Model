@@ -1,6 +1,14 @@
 # Progress
 
 ## Now
+- 2026-11-10: **Phase 2 Task 1 done** (mask outcome phrases). `llm_movies/prompt/outcome_words.py` holds `OUTCOME_PATTERNS` (the
+  report's nine audit patterns, without the dollar figure), `MASK = "[…]"` and `mask_outcomes`. `render` masks tagline and synopsis
+  (synopsis before the 120-word cut); `report` audits with the shared patterns plus its own dollar pattern (row order unchanged).
+  Golden prompts unchanged. 953 tests pass, ruff clean; code-reviewer (spec ✅, approved) and test-auditor run on Windows. Next: Task 2.
+  Deferred minors: patterns run one after another, so "Academy Award-winning" becomes "[…]-winning" (still masked; one combined
+  regex would fix it); `report.py` keeps the dollar row third by slicing `OUTCOME_PATTERNS[:2]`; `test_outcome_words.py` imports
+  `film` from `test_render.py`. The test-auditor left a stray `tests/prompt/test_zz_mutant_cut.py` (untracked, its hook blocked the
+  delete); delete it by hand.
 - 2026-11-10: **Phase 2 plan written:** `docs/superpowers/plans/2026-11-10-phase2-model-and-training.md` (13 tasks). Next: Task 1 (mask outcome phrases).
   Decisions with the owner: outcome phrases in tagline/synopsis are masked in `render` (training and serving; dollar figures not masked);
   `source_strength` kept, randomly hidden in training, tested in E5; leak-check experiment E4 drops `release_type`, `distributor`, `themes`.

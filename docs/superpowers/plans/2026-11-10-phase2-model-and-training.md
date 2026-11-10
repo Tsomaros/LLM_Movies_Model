@@ -70,9 +70,9 @@ tests/eval/test_probe.py, tests/conftest.py (tiny model + tokenizer fixtures)
 - Produces: `OUTCOME_PATTERNS: tuple[tuple[str, re.Pattern], ...]` = the report's current audit patterns **except** "dollar figure" (box office, gross/grossed/grossing, Oscar(s), Academy Award(s), award-winning, blockbuster(s), Golden Globe(s), record-breaking, smash hit(s)), word-bounded, case-insensitive; `MASK = "[…]"`; `mask_outcomes(text: str | None) -> str | None`.
 - `render` applies `mask_outcomes` to tagline and synopsis (synopsis is masked before the 120-word cut). `report` builds its audit from `OUTCOME_PATTERNS` plus its own dollar pattern, so the two can never drift.
 
-- [ ] **Step 1: Failing tests:** `test_each_pattern_masked` (one sentence per pattern → contains `[…]`, not the phrase), `test_case_and_hyphen_variants` ("Award Winning", "box-office"), `test_word_bounds` ("grossly", "Oscarsson" unchanged), `test_dollar_figures_not_masked`, `test_none_passthrough`, `test_render_masks_tagline_and_synopsis`, `test_report_audit_uses_shared_patterns` (every `OUTCOME_PATTERNS` label appears in the report table).
-- [ ] **Step 2–4:** FAIL → implement → PASS. Golden prompts: run `test_render_matches_golden`; if a golden changes, inspect it and regenerate with `UPDATE_GOLDEN=1` only when the diff is exactly the masking.
-- [ ] **Step 5:** Commit `feat(prompt): mask outcome phrases`.
+- [x] **Step 1: Failing tests:** `test_each_pattern_masked` (one sentence per pattern → contains `[…]`, not the phrase), `test_case_and_hyphen_variants` ("Award Winning", "box-office"), `test_word_bounds` ("grossly", "Oscarsson" unchanged), `test_dollar_figures_not_masked`, `test_none_passthrough`, `test_render_masks_tagline_and_synopsis`, `test_report_audit_uses_shared_patterns` (every `OUTCOME_PATTERNS` label appears in the report table).
+- [x] **Step 2–4:** FAIL → implement → PASS. Golden prompts: run `test_render_matches_golden`; if a golden changes, inspect it and regenerate with `UPDATE_GOLDEN=1` only when the diff is exactly the masking.
+- [x] **Step 5:** Commit `feat(prompt): mask outcome phrases`.
 
 ### Task 2: Render options for training and experiments
 

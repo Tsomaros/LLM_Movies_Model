@@ -181,11 +181,22 @@ def test_report_on_the_mini_export_never_names_a_locked_film(tmp_path):
     assert "| min_votes |" in text and "| holdout | 2 |" in text
 
 
-def test_report_audit_uses_shared_patterns(hand_db, tmp_path):
-    from llm_movies.prompt.outcome_words import OUTCOME_PATTERNS
+def test_report_audit_uses_shared_patterns(hand_db, tmp_path, monkeypatch):
+    import importlib
+    import re
 
-    text = report(hand_db, parquet_of(tmp_path / "f.parquet", []), CFG)
+    from llm_movies.prompt import outcome_words
+
+    # Add a probe pattern to the shared tuple and re-import report.py: if it audits with its own copy, the probe is absent.
+    probe = ("zzprobe", re.compile(r"\bzzprobe\b", re.IGNORECASE))
+    monkeypatch.setattr(outcome_words, "OUTCOME_PATTERNS", (*outcome_words.OUTCOME_PATTERNS, probe))
+    try:
+        reloaded = importlib.reload(report_module)
+        rows = [(41, "train", film(tagline="a ZZProbe here"), 1.0, 7.0)]
+        text = reloaded.report(hand_db, parquet_of(tmp_path / "f.parquet", rows), CFG)
+    finally:
+        monkeypatch.undo()
+        importlib.reload(report_module)
     audited = text.split("Outcome-word audit")[1]
-    for label, _ in OUTCOME_PATTERNS:
-        assert f"| {label} |" in audited
+    assert line(audited, "| zzprobe |").split("|")[2].strip() == "1"
     assert "| dollar figure |" in audited
