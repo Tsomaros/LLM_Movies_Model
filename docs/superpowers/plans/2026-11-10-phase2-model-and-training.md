@@ -127,8 +127,8 @@ tests/eval/test_probe.py, tests/conftest.py (tiny model + tokenizer fixtures)
 **Interfaces:**
 - `revenue_metrics(pred: ndarray[N,3], true_log: ndarray[N]) -> dict` with `mae_log` (|q50 − true|), `within_2x` (share with |q50 − true| ≤ ln 2), `coverage_80` (share with q10 ≤ true ≤ q90), `median_width_x` (median of exp(q90 − q10)), `pinball`.
 - `score_metrics(pred: ndarray[N,3], true: ndarray[N], weight: ndarray[N]) -> dict` with weighted `mae`, `coverage_80`, `median_width`, `pinball` (same definitions as the app's evaluation).
-- [ ] **Step 1: Failing tests:** hand-worked values for each metric on 4 rows (working shown in comments), `test_exactly_2x_counts_within`, `test_weights_change_score_mae`.
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(eval): prediction metrics`.
+- [x] **Step 1: Failing tests:** hand-worked values for each metric on 4 rows (working shown in comments), `test_exactly_2x_counts_within`, `test_weights_change_score_mae`.
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(eval): prediction metrics`.
 
 ### Task 7: Hub checkpoints and resume
 

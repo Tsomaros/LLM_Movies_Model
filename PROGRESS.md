@@ -1,6 +1,13 @@
 # Progress
 
 ## Now
+- 2026-11-10: **Phase 2 Task 6 done** (metrics) in `llm_movies/eval/metrics.py`. `revenue_metrics`: `mae_log`, `within_2x`
+  (ln 2 inclusive, the app's 1e-12 tolerance), `coverage_80`, `median_width_x`, `pinball`. `score_metrics`: weighted `mae`,
+  unweighted `coverage_80` (as the app), `median_width`, weighted `pinball`. Pinball follows `model/loss.py`. Differences from the
+  app's `ml/eval/metrics.py` (the plan's formulas win): score width is a median (app: mean), `mae` is the weighted one (app reports
+  both), pinball is new, key names differ. Empty input raises. 1027 tests pass, ruff clean; code-reviewer (spec ✅, approved) and
+  test-auditor (it made median vs mean, boundaries and weights distinguishable) run on Windows. Next: Task 7. Deferred minors: NaN or
+  negative weights and NaN predictions are not rejected; no shape-mismatch tests.
 - 2026-11-10: **Phase 2 Task 5 done** (dataset, collator, sampler) in `llm_movies/model/data.py`. `load_frames` takes the data dir
   or the films.parquet path and reads only films.parquet (train sampled by `sample_frac` with the seed, validation; calibration
   dropped). `TargetScaler` (mean 0 / std 1 fallback for empty or near-constant columns, JSON round trip). `FilmDataset` renders with
