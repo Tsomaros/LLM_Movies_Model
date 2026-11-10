@@ -165,8 +165,8 @@ tests/eval/test_probe.py, tests/conftest.py (tiny model + tokenizer fixtures)
 - `token_lengths(parquet, tokenizer_id) -> dict` (`p50, p90, p99, max` over open-split prompts rendered with nothing hidden); `recommended_max_len = ceil(p99 / 64) * 64`.
 - `cpu_forward_seconds(model_id, max_len, batch=13, int8=True) -> float` (median of 5 forward passes of `batch` prompts on CPU with `torch.ao.quantization.quantize_dynamic` on Linear layers; batch 13 = one prediction + 12 effect groups).
 - CLIs: `python -m llm_movies.eval.probe revenue|director --model ID --db PATH --n N --out CSV`, `python -m llm_movies.eval.tokens --tokenizer ID`, `python -m llm_movies.eval.speed --model ID --max-len L`.
-- [ ] **Step 1: Failing tests:** `test_parse_money_answer_table` (the five Review Focus shapes + "$1.2 billion" → 1.2e9, "$85M" → 8.5e7, "1,234,567" → 1234567, "I don't know" → None, "two hundred" → None), `test_revenue_probe_known_within_2x` (fake generator), `test_director_probe_accents_folded`, `test_empirical_cutoff_on_synthetic_curve`, `test_token_lengths_tiny_tokenizer`, `test_speed_runs_on_tiny_model` (returns a positive float).
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(eval): probes, token lengths and CPU speed`.
+- [x] **Step 1: Failing tests:** `test_parse_money_answer_table` (the five Review Focus shapes + "$1.2 billion" → 1.2e9, "$85M" → 8.5e7, "1,234,567" → 1234567, "I don't know" → None, "two hundred" → None), `test_revenue_probe_known_within_2x` (fake generator), `test_director_probe_accents_folded`, `test_empirical_cutoff_on_synthetic_curve`, `test_token_lengths_tiny_tokenizer`, `test_speed_runs_on_tiny_model` (returns a positive float).
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(eval): probes, token lengths and CPU speed`.
 
 ### Task 10: Choose the base model (Colab + decision)
 

@@ -53,6 +53,10 @@ CPI = {2010: 80.0, 2017: 90.0, 2025: 100.0}
         ("5 B", 5e9),
         ("1980s", 1980),  # trailing letters must not make the regex give back digits
         ("10x", 10),
+        ("$900 million to $1.1 billion", 9e8),  # a scaled first number keeps its own scale
+        ("$85M-100M", 8.5e7),
+        ("12 to 13 Mondays", 12),  # "M" followed by letters is no scale in a range tail either
+        ("100 and 5 widgets", 100),
     ],
 )
 def test_parse_money_answer_table(text, expected):
@@ -72,6 +76,12 @@ def test_revenue_probe_missing_cpi_year_is_named():
     films = pd.DataFrame({"tmdb_id": [1], "title": ["A"], "year": [1999], "revenue_2025": [1e8]})
     with pytest.raises(ValueError, match="1999"):
         revenue_probe(lambda ps: ["1"] * len(ps), films, CPI)
+
+
+def test_revenue_probe_missing_2025_is_named():
+    films = pd.DataFrame({"tmdb_id": [1], "title": ["A"], "year": [2010], "revenue_2025": [1e8]})
+    with pytest.raises(ValueError, match="2025"):
+        revenue_probe(lambda ps: ["1"] * len(ps), films, {2010: 80.0})
 
 
 def test_revenue_probe_known_within_2x():

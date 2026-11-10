@@ -1,6 +1,19 @@
 # Progress
 
 ## Now
+- 2026-11-10: **Phase 2 Task 9 done** (probes, token lengths, CPU speed) in `llm_movies/eval/probe.py`, `tokens.py`, `speed.py`.
+  CLIs for Task 10: `python -m llm_movies.eval.probe revenue|director --model ID --db PATH --n N --out CSV [--min-votes 100]`,
+  `python -m llm_movies.eval.tokens --tokenizer ID [--parquet DIR]` (the `--parquet` default `data/export` is a guess; pass it),
+  `python -m llm_movies.eval.speed --model ID --max-len L` (prints the thread count). Leak rules: the revenue probe reads only
+  validation films; the director probe may sample any year but returns only id, title, year, release date and director (vote_count
+  is a sampling filter only); `token_lengths` reads only films.parquet. `parse_money` takes the first number (atomic, so "1980s" is
+  1980), a range's first number inherits the tail's scale ("$1.2-1.5 billion" → 1.2e9), scale words K/M/mn/mil/mln/B/bn/thousand/
+  million/billion; other currencies are read as dollars. `known` = within 2× of nominal dollars (revenue_2025 × CPI ratio).
+  `empirical_cutoff` = last day of the last quarter with recall ≥ 50% of the 2019–2020 mean (a lucky tiny quarter can push it
+  late; use enough films per quarter). `make_generator` is greedy, batched, left-padded, new text only. `cpu_forward_seconds` = median
+  of 5 int8 forward passes after one warm-up (`torch.ao.quantization.quantize_dynamic`, deprecated but working on torch 2.15).
+  1106 tests pass, ruff clean; code-reviewer (two Important findings, fixed in one round) and test-auditor (it found the "1980s"
+  backtracking bug) run on Windows. Deferred: "85 and 3 billion" parses as 8.5e10 ("and"/"or" connectors). Next: Task 10 (Colab).
 - 2026-11-10: **Phase 2 Task 8 done** (training loop) in `llm_movies/model/train.py`: `train(cfg, data_dir, *, api, lm, tokenizer,
   device, out_dir) -> summary` (`best_metric`, `best_step`, `stopped_reason` patience/epochs/nan, best validation metrics) and the
   CLI `python -m llm_movies.model.train --config configs/train/<name>.yaml [--data DIR]`, which downloads only films.parquet
