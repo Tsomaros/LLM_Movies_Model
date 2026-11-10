@@ -1,6 +1,9 @@
 # Progress
 
 ## Now
+- 2026-11-10: **Phase 2 plan written:** `docs/superpowers/plans/2026-11-10-phase2-model-and-training.md` (13 tasks). Next: Task 1 (mask outcome phrases).
+  Decisions with the owner: outcome phrases in tagline/synopsis are masked in `render` (training and serving; dollar figures not masked);
+  `source_strength` kept, randomly hidden in training, tested in E5; leak-check experiment E4 drops `release_type`, `distributor`, `themes`.
 - Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. **Phase 1 done** (2026-11-10). Next: write the Phase 2 plan from the roadmap.
 - 2026-11-07: two dry-run fixes done. TMDB pull runs `--workers` threads (default 8) under the shared 40/s cap, writing in id
   order on the main thread (expected about 10 h instead of 70 h; the real speed is unmeasured until Colab). `release_type`: the
