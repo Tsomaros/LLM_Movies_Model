@@ -138,8 +138,8 @@ tests/eval/test_probe.py, tests/conftest.py (tiny model + tokenizer fixtures)
 - `save_checkpoint(model, scaler, cfg, state: dict, kind: Literal["best","last"], api=None) -> None`: writes to a local temp folder (`adapter/` via `save_pretrained`, `head.pt`, `scaler.json`, `train_config.yaml`, `state.json`; `last` also `optimizer.pt`, `grad_scaler.pt`, `lr_scheduler.pt`, `rng.pt` with the torch, numpy and Python RNG states), then uploads `runs/<run_name>/<kind>/` in **one commit** through `hub_store`; `state.json` (`step, epoch, best_metric, bad_checks, metrics`) is written last within the commit.
 - `load_checkpoint(cfg, kind, api=None, lm=None) -> tuple[MoviePredictor, TargetScaler, dict] | None` (None when absent).
 - `resume_state(cfg, api=None) -> dict | None` (the `last` state, or None for a fresh run).
-- [ ] **Step 1: Failing tests** (fake Hub api over a temp dir, tiny model): `test_save_load_roundtrip_same_predictions`, `test_upload_is_one_commit`, `test_interrupted_upload_resumes_from_previous` (fake commit raises → the Hub still holds the earlier complete `last`), `test_refuses_public_repo`, `test_missing_run_returns_none`.
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(model): Hub checkpoints and resume`.
+- [x] **Step 1: Failing tests** (fake Hub api over a temp dir, tiny model): `test_save_load_roundtrip_same_predictions`, `test_upload_is_one_commit`, `test_interrupted_upload_resumes_from_previous` (fake commit raises → the Hub still holds the earlier complete `last`), `test_refuses_public_repo`, `test_missing_run_returns_none`.
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(model): Hub checkpoints and resume`.
 
 ### Task 8: Training loop
 

@@ -188,13 +188,15 @@ def test_last_without_optimizer_or_scheduler_raises(model, scaler, missing):
     kwargs = {**_opt(model), missing: None}
     with pytest.raises(ValueError, match="optimizer and the lr_scheduler"):
         save_checkpoint(model, scaler, CFG, STATE, "last", api=hub, **kwargs)
-    assert hub.commits == []
+    assert hub.commits == [] and hub.files == {}  # nothing uploaded, not even a partial checkpoint
 
 
 def test_last_without_grad_scaler_leaves_no_stale_scaler_state(model, scaler):
     hub = FakeHub()
     scaler_a = torch.amp.GradScaler("cpu", enabled=True, init_scale=1234.0)
     save_checkpoint(model, scaler, CFG, STATE, "last", api=hub, grad_scaler=scaler_a, **_opt(model))
+    first = restore_training_state(CFG, api=hub, grad_scaler=(probe := torch.amp.GradScaler("cpu", enabled=True, init_scale=7.0)))
+    assert first and probe.state_dict()["scale"] == 1234.0  # precondition: the first save really holds a non-default scale
     save_checkpoint(model, scaler, CFG, {**STATE, "step": 20}, "last", api=hub, **_opt(model))  # CPU run: no scaler
     assert sorted(hub.commits[0]) == sorted(hub.commits[1])  # same file set
     fresh = torch.amp.GradScaler("cpu", enabled=True, init_scale=7.0)

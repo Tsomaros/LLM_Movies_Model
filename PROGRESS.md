@@ -1,6 +1,19 @@
 # Progress
 
 ## Now
+- 2026-11-10: **Phase 2 Task 7 done** (Hub checkpoints and resume) in `llm_movies/model/checkpoint.py`. API for Task 8:
+  `save_checkpoint(model, scaler, cfg, state, kind, api=None, *, optimizer=None, grad_scaler=None, lr_scheduler=None)`,
+  `load_checkpoint(cfg, kind, api=None, lm=None) -> (model, scaler, state) | None`, `resume_state(cfg, api=None)`,
+  `restore_training_state(cfg, api=None, *, optimizer=None, grad_scaler=None, lr_scheduler=None) -> bool` (downloads `last` again).
+  Checkpoints go to the private model repo `runs/<run_name>/{best,last}/` in one commit with `state.json` last; a folder without
+  `state.json` counts as absent, so a killed upload leaves the previous checkpoint loadable. `last` must get an optimizer and an lr
+  scheduler, and always writes `grad_scaler.pt` (marker `{"enabled": False}` without a scaler), so no stale file survives an add-only
+  commit; pass `grad_scaler=None` on CPU, not a disabled GradScaler. RNG states (torch CPU/CUDA, numpy, Python) load with
+  `weights_only=True`. `hub_store` gained keyword-only `repo_type="dataset"` on `ensure_private_repo`, `upload_files`, `download`,
+  `read_json` (dataset behaviour unchanged; a public model repo is refused). Only fakes are tested; the real Hub path is unexercised
+  until the first Kaggle run (the reviewer checked every call against huggingface_hub 2.4.0). 1040 tests pass, ruff clean;
+  code-reviewer (spec ✅, approved; the same-file-set fix came from its minor, one fix round) and test-auditor run on Windows.
+  Next: Task 8.
 - 2026-11-10: **Phase 2 Task 6 done** (metrics) in `llm_movies/eval/metrics.py`. `revenue_metrics`: `mae_log`, `within_2x`
   (ln 2 inclusive, the app's 1e-12 tolerance), `coverage_80`, `median_width_x`, `pinball`. `score_metrics`: weighted `mae`,
   unweighted `coverage_80` (as the app), `median_width`, weighted `pinball`. Pinball follows `model/loss.py`. Differences from the
