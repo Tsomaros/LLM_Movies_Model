@@ -1,6 +1,21 @@
 # Progress
 
 ## Now
+- 2026-11-10: **Phase 2 Task 4 done** (predictor). `llm_movies/model/config.py`: `TrainConfig` (frozen, plan defaults) and
+  `load_train_config` (`extends` relative to the child file; unknown keys and `drop_groups` outside `HIDEABLE` raise).
+  `llm_movies/model/predictor.py`: `MoviePredictor` / `build_predictor` (frozen base, LoRA r16/a32/0.05 on all-linear, fp32 LoRA and
+  head, fp16 base + gradient checkpointing on CUDA only) and `trainable_parameters`. Pooling runs the PEFT-wrapped decoder
+  (`get_base_model().get_decoder()`, last hidden state at `attention_mask.sum(1) - 1`) instead of the full LM with
+  `output_hidden_states`, so no vocab-size logits are computed; a test proves gradients reach every LoRA B. `configs/train/base.yaml`
+  holds `run_name: base` and a placeholder `base_model: Qwen/Qwen3-0.6B` (Task 10/11 finalise it). Config tests are in
+  `tests/model/test_train_config.py` (name clash with `tests/test_config.py`). 1002 tests pass, ruff clean; code-reviewer (spec ✅,
+  approved) and test-auditor (it tightened the truncation test with a padded mixed batch) run on Windows. Next: Task 5.
+  For Task 5: pooling assumes right padding; the tokenizer/Collator must force `padding_side="right"` (Qwen may default left) and test
+  it; an all-zero mask row would pool position -1. For Task 10: Gemma 3 overflows in fp16, and a multimodal Gemma keeps `hidden_size`
+  on `text_config`. For the first T4 run: the CUDA path is untested here; check one backward step gives non-zero LoRA gradients.
+- 2026-11-10: Invisible whitespace in `tests/prompt/test_render.py` parametrize lists replaced by `\u` escapes. `main` pushed at ec927ab;
+  CI passed with the CPU-torch install (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42847879800). `gh` is not installed
+  on the Windows PC; CI was checked through the public GitHub API.
 - 2026-11-10: **Phase 2 Task 3 done** (training dependencies, tiny-model fixtures, head and loss). `train` extra: transformers 5.22.2,
   peft 0.21.2, accelerate 1.15.0, wandb 0.31.0 (lower bounds); dev group: CPU torch 2.15.0 from the explicit PyTorch CPU index, tokenizers
   0.23.3. CI runs `uv sync --locked --extra train`; on Windows run `uv sync --extra train` once (the Linux side likewise with its own
