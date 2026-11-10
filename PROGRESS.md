@@ -1,14 +1,24 @@
 # Progress
 
 ## Now
+- 2026-11-10: **Phase 2 Task 2 done** (hideable groups, anonymized names). `render(r, hidden, *, anonymize=False)`; `HIDEABLE` adds
+  `source_strength`, `release_type`, `themes` to `OPTIONAL_GROUPS`; `RANDOM_HIDE` adds only `source_strength`. Anonymize: people
+  `Person N` by first appearance (director, writers, cast, producers, composer), identified by cleaned name since ResolvedFilm has no
+  ids, each nameless person a fresh number; companies `Company N`; distributor `Distributor`; franchise `GENERIC_FRANCHISE = "Franchise"`;
+  records unchanged; tagline and synopsis are not anonymized (E2 caveat: names in free text survive; the golden film's synopsis has only
+  character names). Default render unchanged (goldens untouched). 964 tests pass, ruff clean; code-reviewer (spec ✅, approved) and
+  test-auditor run on Windows. Next: Task 3. Deferred minors: the render docstring's long anonymize paragraph, and an inline
+  distributor lambda in the f-string.
+- 2026-11-10: Task 1 follow-up fix: `mask_outcomes` makes one pass with one combined regex, longest first, plus compounds of
+  Oscar / Academy Award / Golden Globe followed by `[\s-]winning`, so "Academy Award-winning" becomes one `[…]` (no fragment).
+  `OUTCOME_PATTERNS` and the report audit are unchanged. Deferred: the compound allows a single space or hyphen only (an en dash or
+  "Oscar - winning" still leaves "winning"; the audit has the same limit).
 - 2026-11-10: **Phase 2 Task 1 done** (mask outcome phrases). `llm_movies/prompt/outcome_words.py` holds `OUTCOME_PATTERNS` (the
   report's nine audit patterns, without the dollar figure), `MASK = "[…]"` and `mask_outcomes`. `render` masks tagline and synopsis
   (synopsis before the 120-word cut); `report` audits with the shared patterns plus its own dollar pattern (row order unchanged).
-  Golden prompts unchanged. 953 tests pass, ruff clean; code-reviewer (spec ✅, approved) and test-auditor run on Windows. Next: Task 2.
-  Deferred minors: patterns run one after another, so "Academy Award-winning" becomes "[…]-winning" (still masked; one combined
-  regex would fix it); `report.py` keeps the dollar row third by slicing `OUTCOME_PATTERNS[:2]`; `test_outcome_words.py` imports
-  `film` from `test_render.py`. The test-auditor left a stray `tests/prompt/test_zz_mutant_cut.py` (untracked, its hook blocked the
-  delete); delete it by hand.
+  Golden prompts unchanged. 953 tests pass, ruff clean; code-reviewer (spec ✅, approved) and test-auditor run on Windows.
+  Deferred minors: `report.py` keeps the dollar row third by slicing `OUTCOME_PATTERNS[:2]`; `test_outcome_words.py` imports
+  `film` from `test_render.py`.
 - 2026-11-10: **Phase 2 plan written:** `docs/superpowers/plans/2026-11-10-phase2-model-and-training.md` (13 tasks). Next: Task 1 (mask outcome phrases).
   Decisions with the owner: outcome phrases in tagline/synopsis are masked in `render` (training and serving; dollar figures not masked);
   `source_strength` kept, randomly hidden in training, tested in E5; leak-check experiment E4 drops `release_type`, `distributor`, `themes`.

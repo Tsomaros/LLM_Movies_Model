@@ -80,8 +80,8 @@ tests/eval/test_probe.py, tests/conftest.py (tiny model + tokenizer fixtures)
 
 **Interfaces:**
 - Produces: `HIDEABLE = OPTIONAL_GROUPS + ("source_strength", "release_type", "themes")`; `RANDOM_HIDE = OPTIONAL_GROUPS + ("source_strength",)` (release type and themes are never hidden at random); `render(r, hidden: frozenset[str] = frozenset(), *, anonymize: bool = False) -> str`. `hidden` accepts names from `HIDEABLE`. `anonymize=True` replaces every person's name with `Person N` (numbered by first appearance in line order: director, writers, cast, producers, composer), every company with `Company N`, the distributor with `Distributor`, and the franchise name with `GENERIC_FRANCHISE`; records (films, money, score, awards) stay.
-- [ ] **Step 1: Failing tests:** `test_hide_release_type_and_themes`, `test_source_strength_hideable_alone` (source material still shown), `test_unknown_group_still_raises`, `test_anonymize_removes_every_name` (no name from the golden film's ResolvedFilm appears; `Person 1` is the director), `test_anonymize_same_person_same_number` (a director who also writes is `Person 1` in both lines), `test_anonymize_keeps_records`, `test_random_hide_excludes_release_type_and_themes`.
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(prompt): hideable groups and anonymized names`.
+- [x] **Step 1: Failing tests:** `test_hide_release_type_and_themes`, `test_source_strength_hideable_alone` (source material still shown), `test_unknown_group_still_raises`, `test_anonymize_removes_every_name` (no name from the golden film's ResolvedFilm appears; `Person 1` is the director), `test_anonymize_same_person_same_number` (a director who also writes is `Person 1` in both lines), `test_anonymize_keeps_records`, `test_random_hide_excludes_release_type_and_themes`.
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(prompt): hideable groups and anonymized names`.
 
 ### Task 3: Training dependencies, tiny-model fixtures, head and loss
 

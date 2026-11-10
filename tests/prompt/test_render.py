@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_movies.prompt.render import GENERIC_FRANCHISE, HIDEABLE, OPTIONAL_GROUPS, RANDOM_HIDE, money, render
+from llm_movies.prompt.render import HIDEABLE, OPTIONAL_GROUPS, RANDOM_HIDE, money, render
 from llm_movies.prompt.resolve import ResolvedFilm, film_row, film_to_form, form_as_of, resolve
 
 GOLDEN = Path(__file__).parent.parent / "golden" / "prompts"
@@ -326,11 +326,18 @@ def test_hide_release_type_and_themes():
     assert "Release type: not given" in text and "Themes: not given" in text
     assert "wide" not in text and "heist" not in text
     assert len(text.splitlines()) == len(render(film()).splitlines())
+    only_type = render(film(), hidden=frozenset({"release_type"}))  # each one alone, so neither hides the other
+    assert "Release type: not given" in only_type and "Themes: heist, family" in only_type
+    only_themes = render(film(), hidden=frozenset({"themes"}))
+    assert "Themes: not given" in only_themes and "Release type: wide" in only_themes
+    assert text == render(film(release_type=None, themes=[]))  # hidden looks like missing
 
 
 def test_source_strength_hideable_alone():
     text = render(film(), hidden=frozenset({"source_strength"}))
     assert "Source: novel" in text and "Source strength: not given" in text
+    assert text == render(film(source_strength=None))  # hidden looks like missing
+    assert "Source strength: 5" in render(film())  # ... and the film really has a strength to hide
 
 
 def test_unknown_group_still_raises():
@@ -356,12 +363,12 @@ def test_anonymize_removes_every_name(mini_con, mini_ctx):
     names = [n for n in names if n]
     assert names
     lines = dict(line.split(": ", 1) for line in text.splitlines())
-    non_free = "\n".join(f"{k}: {v}" for k, v in lines.items() if k not in ("Tagline", "Synopsis"))
-    for name in names:
-        assert name not in non_free, name
+    for name in names:  # the whole text: the golden film's tagline and synopsis hold no such name, so nothing is excluded
+        assert name not in text, name
+    assert len(names) > 15  # director, composer, writers, cast, producers, company, distributor, franchise
     assert lines["Director"].startswith("Person 1 [")
     assert lines["Distributor"].startswith("Distributor [")
-    assert lines["Franchise"] == f"{GENERIC_FRANCHISE} (installment {r.installment})"
+    assert lines["Franchise"] == f"Franchise (installment {r.installment})"
 
 
 def test_anonymize_same_person_same_number():
@@ -376,11 +383,14 @@ def test_anonymize_same_person_same_number():
 
 
 def test_anonymize_nameless_people_get_fresh_numbers():
-    text = render(film(cast=[person(""), person(" ")]), anonymize=True)
-    cast = dict(line.split(": ", 1) for line in text.splitlines())["Cast"]
-    assert cast.startswith("Person ") and "Unnamed" not in cast
-    first, second = (c.split(" [")[0] for c in cast.split("; "))
-    assert first != second
+    # director 1, writers Wri Ter 2 and Ann Other 3, cast: nameless 4, nameless 5, Wri Ter again 2; producers: nameless 6, Pro Ducer 7;
+    # composer 8
+    text = render(film(cast=[person(""), person(" "), person("Wri Ter")], producers=[person(None), person("Pro Ducer")]), anonymize=True)
+    lines = dict(line.split(": ", 1) for line in text.splitlines())
+    assert "Unnamed" not in text
+    assert [c.split(" [")[0] for c in lines["Cast"].split("; ")] == ["Person 4", "Person 5", "Person 2"]
+    assert [c.split(" [")[0] for c in lines["Producers"].split("; ")] == ["Person 6", "Person 7"]
+    assert lines["Composer"].startswith("Person 8 [")
 
 
 def test_anonymize_keeps_records(mini_con, mini_ctx):
@@ -388,10 +398,11 @@ def test_anonymize_keeps_records(mini_con, mini_ctx):
     r = resolve(form, form_as_of(form), mini_ctx)
     plain, anon = render(r).splitlines(), render(r, anonymize=True).splitlines()
     assert len(plain) == len(anon)
-    brackets = lambda line: re.findall(r"\[[^\]]*\]", line)
+    name = re.compile(r"(?:(?<=: )|(?<=; ))[^;\[]+(?= \[)")  # the label in front of a record's bracket
     for a, b in zip(plain, anon):
-        if a.split(": ", 1)[0] in ("Director", "Writers", "Cast", "Producers", "Composer", "Companies", "Distributor"):
-            assert brackets(a) == brackets(b), a
-        elif a.split(": ", 1)[0] != "Franchise":
-            assert a == b, a
+        a, b = name.sub("N", a), name.sub("N", b)
+        if a.startswith("Franchise: ") and "installment" in a:
+            a, b = a.replace(f": {r.franchise} (", ": F ("), b.replace(": Franchise (", ": F (")
+        assert a == b, a  # everything but the labels is identical, including " · age N" after the director's record
+    assert r.cast and len(r.cast) > 1  # a real multi-record line was compared
     assert "age 54" in render(film(), anonymize=True) and "Budget: $50M" in render(film(), anonymize=True)
