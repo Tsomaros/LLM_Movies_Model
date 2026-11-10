@@ -268,7 +268,7 @@ def test_whitespace_only_name_prints_unnamed():
     assert "Director: Unnamed [" in text and "Cast: Unnamed [" in text
 
 
-@pytest.mark.parametrize("blank", [None, "", " \n ", " ", "\r\n\t"])
+@pytest.mark.parametrize("blank", [None, "", " \n ", "\u00a0", "\r\n\t"])
 def test_unnamed_applies_to_every_person_and_company_and_keeps_the_record(blank):
     text = render(film(
         director=person(blank, films=7, revenue=12_000_000.0, score=6.0, wins=0, noms=5), writers=[person(blank, 1, 2_000_000.0, 6.0, 1, 1)],
@@ -285,7 +285,7 @@ def test_unnamed_applies_to_every_person_and_company_and_keeps_the_record(blank)
     assert lines["Companies"] == "Unnamed [3 films · $90M · 6.5]; Studio Two [3 films · $90M · 6.5]"
 
 
-@pytest.mark.parametrize("sep", ["\n", "\r\n", "\r", "\t", " ", " ", " ", "\x85", "\x0b", "\x0c", "\x1c", "  \n  "])
+@pytest.mark.parametrize("sep", ["\n", "\r\n", "\r", "\t", "\u00a0", "\u2028", "\u2029", "\x85", "\x0b", "\x0c", "\x1c", "  \n  "])
 def test_any_whitespace_collapses_to_one_space_in_every_free_text_field(sep):
     j = lambda a, b: f"{a}{sep}{b}"
     clean = render(film())
