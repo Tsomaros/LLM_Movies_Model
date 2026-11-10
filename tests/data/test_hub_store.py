@@ -332,3 +332,16 @@ def test_a_bad_token_is_refused_without_showing_it(monkeypatch, bad):
     with pytest.raises(SystemExit) as stop:
         hub_store.make_api()
     assert "HF_TOKEN" in str(stop.value) and "secret" not in str(stop.value) and "sécret" not in str(stop.value)
+
+
+def test_public_model_repo_is_refused_and_model_info_is_used():
+    class ModelApi(FakeApi):
+        def model_info(self, repo_id):
+            self._call("model_info", repo_id=repo_id)
+            return type("Info", (), {"private": self.private})()
+
+    api = ModelApi(private=False)
+    with pytest.raises(RuntimeError, match="public"):
+        upload_files({"runs/a.json": b"{}"}, "me/runs", api=api, repo_type="model")
+    assert api.names() == ["create_repo", "model_info"]
+    assert api.calls[0][1]["repo_type"] == "model"

@@ -49,12 +49,13 @@ def make_api():
     return HfApi(token=hf_token())
 
 
-def ensure_private_repo(api, repo_id: str, private: bool = True) -> None:
-    """Create the dataset repo if absent. If `private` is asked and the repo is public (create_repo leaves an existing
-    repo as it is), raise before anything is uploaded."""
-    api.create_repo(repo_id=repo_id, private=private, repo_type="dataset", exist_ok=True)
-    if private and api.dataset_info(repo_id).private is not True:
-        raise RuntimeError(f"The dataset repo {repo_id} is public. Make it private on Hugging Face, then push again. Nothing was uploaded.")
+def ensure_private_repo(api, repo_id: str, private: bool = True, *, repo_type: str = "dataset") -> None:
+    """Create the repo (`repo_type` "dataset" or "model") if absent. If `private` is asked and the repo is public
+    (create_repo leaves an existing repo as it is), raise before anything is uploaded."""
+    api.create_repo(repo_id=repo_id, private=private, repo_type=repo_type, exist_ok=True)
+    info = api.model_info(repo_id) if repo_type == "model" else api.dataset_info(repo_id)
+    if private and info.private is not True:
+        raise RuntimeError(f"The {repo_type} repo {repo_id} is public. Make it private on Hugging Face, then push again. Nothing was uploaded.")
 
 
 def _retryable(error: Exception) -> bool:
@@ -149,14 +150,20 @@ def upload(
 
 
 def upload_files(
-    files: dict[str, Path | bytes], repo_id: str = DEFAULT_REPO, *, api=None, message: str = "update", replace: bool = False
+    files: dict[str, Path | bytes],
+    repo_id: str = DEFAULT_REPO,
+    *,
+    api=None,
+    message: str = "update",
+    replace: bool = False,
+    repo_type: str = "dataset",
 ) -> None:
     """Upload named files (repo path -> local file or bytes) as one commit."""
     for name in files:
         if _ignored(name) or _ignored(name.rsplit("/", 1)[-1]):
             raise ValueError(f"Refusing to upload {name}: env files, temporary files and repo internals are never uploaded")
     api = api or make_api()
-    ensure_private_repo(api, repo_id)
+    ensure_private_repo(api, repo_id, repo_type=repo_type)
     unchanged = _unchanged_protected(api, repo_id, files, replace)
     operations = [
         CommitOperationAdd(path_in_repo=name, path_or_fileobj=str(src) if isinstance(src, Path) else src)
@@ -165,23 +172,23 @@ def upload_files(
     ]
     if not operations:
         return
-    _retry(lambda: api.create_commit(repo_id=repo_id, repo_type="dataset", operations=operations, commit_message=message))
+    _retry(lambda: api.create_commit(repo_id=repo_id, repo_type=repo_type, operations=operations, commit_message=message))
 
 
-def download(folder: Path, repo_id: str = DEFAULT_REPO, path_in_repo: str = "", *, api=None) -> int:
+def download(folder: Path, repo_id: str = DEFAULT_REPO, path_in_repo: str = "", *, api=None, repo_type: str = "dataset") -> int:
     """Download the repo's `path_in_repo` into `folder` (the prefix is stripped) and return the file count. A repo that
     does not exist yet is a first run: 0 files, no error. Existing local files are overwritten."""
     folder = Path(folder)
     api = api or make_api()
-    if not _retry(lambda: api.repo_exists(repo_id, repo_type="dataset")):
+    if not _retry(lambda: api.repo_exists(repo_id, repo_type=repo_type)):
         return 0
     prefix = path_in_repo.strip("/") + "/" if path_in_repo.strip("/") else ""
-    names = [n for n in _retry(lambda: api.list_repo_files(repo_id, repo_type="dataset")) if n.startswith(prefix)]
+    names = [n for n in _retry(lambda: api.list_repo_files(repo_id, repo_type=repo_type)) if n.startswith(prefix)]
     stage = folder.parent / f".{folder.name}.stage"
     shutil.rmtree(stage, ignore_errors=True)
     try:
         for name in names:
-            source = _retry(lambda name=name: api.hf_hub_download(repo_id, name, repo_type="dataset", local_dir=stage))
+            source = _retry(lambda name=name: api.hf_hub_download(repo_id, name, repo_type=repo_type, local_dir=stage))
             target = folder / name[len(prefix) :]
             target.parent.mkdir(parents=True, exist_ok=True)
             os.replace(source, target)
@@ -190,15 +197,15 @@ def download(folder: Path, repo_id: str = DEFAULT_REPO, path_in_repo: str = "", 
     return len(names)
 
 
-def read_json(repo_id: str, path_in_repo: str, *, api=None):
+def read_json(repo_id: str, path_in_repo: str, *, api=None, repo_type: str = "dataset"):
     """The JSON file at `path_in_repo`, or None when the repo or the file does not exist yet (a first run)."""
     api = api or make_api()
-    if not _retry(lambda: api.repo_exists(repo_id, repo_type="dataset")):
+    if not _retry(lambda: api.repo_exists(repo_id, repo_type=repo_type)):
         return None
-    if path_in_repo not in _retry(lambda: api.list_repo_files(repo_id, repo_type="dataset")):
+    if path_in_repo not in _retry(lambda: api.list_repo_files(repo_id, repo_type=repo_type)):
         return None
     with tempfile.TemporaryDirectory() as stage:
-        path = _retry(lambda: api.hf_hub_download(repo_id, path_in_repo, repo_type="dataset", local_dir=stage))
+        path = _retry(lambda: api.hf_hub_download(repo_id, path_in_repo, repo_type=repo_type, local_dir=stage))
         return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
