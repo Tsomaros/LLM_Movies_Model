@@ -93,8 +93,8 @@ tests/eval/test_probe.py, tests/conftest.py (tiny model + tokenizer fixtures)
 - `QUANTILES`, `TARGETS` constants in `llm_movies/model/__init__.py`.
 - `QuantileHead(in_dim: int, hidden: int = 256)`: `forward(h: Tensor[B, in_dim]) -> Tensor[B, 2, 3]`; Linear → GELU → Linear(6); per target `(m, a, b)` → `(m - softplus(a), m, m + softplus(b))`.
 - `pinball_loss(pred: Tensor[B,2,3], target: Tensor[B,2], mask: Tensor[B,2] (bool), weight: Tensor[B,2]) -> Tensor[]`: per target, weighted mean over available rows of the mean pinball over the 3 quantiles; the score weights are normalised to mean 1 over the available rows; result = revenue term + score term; a target with no rows contributes 0.
-- [ ] **Step 1: Failing tests:** `test_quantiles_never_cross` (random inputs ×1000 → q10 ≤ q50 ≤ q90), `test_head_shape`, `test_pinball_known_values` (hand-worked: target 1.0, preds (0, 1, 3) → per-quantile 0.1, 0, 0.2 → mean 0.1), `test_loss_with_empty_target_mask`, `test_score_weights_normalised` (scaling all weights ×10 leaves the loss unchanged), `test_masked_rows_ignored` (changing a masked target's value leaves the loss unchanged).
-- [ ] **Step 2–4:** FAIL → implement → PASS; `uv sync --locked --extra train` works on Windows and in CI. **Step 5:** Commit `feat(model): quantile head and pinball loss`.
+- [x] **Step 1: Failing tests:** `test_quantiles_never_cross` (random inputs ×1000 → q10 ≤ q50 ≤ q90), `test_head_shape`, `test_pinball_known_values` (hand-worked: target 1.0, preds (0, 1, 3) → per-quantile 0.1, 0, 0.2 → mean 0.1), `test_loss_with_empty_target_mask`, `test_score_weights_normalised` (scaling all weights ×10 leaves the loss unchanged), `test_masked_rows_ignored` (changing a masked target's value leaves the loss unchanged).
+- [x] **Step 2–4:** FAIL → implement → PASS; `uv sync --locked --extra train` works on Windows and in CI. **Step 5:** Commit `feat(model): quantile head and pinball loss`.
 
 ### Task 4: The predictor module
 

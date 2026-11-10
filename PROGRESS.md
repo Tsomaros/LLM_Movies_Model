@@ -1,12 +1,25 @@
 # Progress
 
 ## Now
+- 2026-11-10: **Phase 2 Task 3 done** (training dependencies, tiny-model fixtures, head and loss). `train` extra: transformers 5.22.2,
+  peft 0.21.2, accelerate 1.15.0, wandb 0.31.0 (lower bounds); dev group: CPU torch 2.15.0 from the explicit PyTorch CPU index, tokenizers
+  0.23.3. CI runs `uv sync --locked --extra train`; on Windows run `uv sync --extra train` once (the Linux side likewise with its own
+  env). `llm_movies/model/`: `QUANTILES`, `TARGETS`, `QuantileHead` (non-crossing by softplus), `pinball_loss` (computes in fp32; masked
+  cells are fully ignored, even NaN/inf weights or targets; an empty target adds 0 with zero gradients). `tests/conftest.py` builds
+  `tiny_tokenizer`/`tiny_lm` offline (transformers imported inside the fixtures). The test-auditor's tests found the masked NaN-weight
+  bug, fixed in one round. 990 tests pass, ruff clean; code-reviewer (spec ✅, approved) and test-auditor run on Windows. Next: Task 4.
+  Deferred minors: the loss also normalises revenue weights (same result while they are 1); no test feeds an fp16 `pred`. During the
+  run the Unicode-whitespace parametrize values in `tests/prompt/test_render.py` were blanked once by an unknown cause (restored; the
+  committed file is intact). If it recurs, suspect a hook or editor rewriting that file.
+- 2026-11-10: Free-text anonymize fix (E2): with `anonymize=True`, this film's own person, company, distributor and franchise names
+  inside tagline and synopsis become the same labels as the record lines (case-sensitive, `(?<!\w)`/`(?!\w)` bounds, one regex longest
+  first, after outcome masking and before the 120-word cut). Names of hidden groups still get the next free numbers. A distributor or
+  franchise name equal to a company name reads `Company N` in free text. Surnames alone and other-case mentions are not replaced.
 - 2026-11-10: **Phase 2 Task 2 done** (hideable groups, anonymized names). `render(r, hidden, *, anonymize=False)`; `HIDEABLE` adds
   `source_strength`, `release_type`, `themes` to `OPTIONAL_GROUPS`; `RANDOM_HIDE` adds only `source_strength`. Anonymize: people
   `Person N` by first appearance (director, writers, cast, producers, composer), identified by cleaned name since ResolvedFilm has no
   ids, each nameless person a fresh number; companies `Company N`; distributor `Distributor`; franchise `GENERIC_FRANCHISE = "Franchise"`;
-  records unchanged; tagline and synopsis are not anonymized (E2 caveat: names in free text survive; the golden film's synopsis has only
-  character names). Default render unchanged (goldens untouched). 964 tests pass, ruff clean; code-reviewer (spec ✅, approved) and
+  records unchanged (free text: see the anonymize fix above). Default render unchanged (goldens untouched). 964 tests pass, ruff clean; code-reviewer (spec ✅, approved) and
   test-auditor run on Windows. Next: Task 3. Deferred minors: the render docstring's long anonymize paragraph, and an inline
   distributor lambda in the f-string.
 - 2026-11-10: Task 1 follow-up fix: `mask_outcomes` makes one pass with one combined regex, longest first, plus compounds of
