@@ -87,6 +87,16 @@ def test_truncated_prompt_pools_last_kept_token(predictor, tiny_tokenizer, golde
     torch.testing.assert_close(got, expected, atol=1e-6, rtol=0)
     assert not torch.allclose(got, wrong, atol=1e-4)
 
+    # mixed batch: one row truncated at n, one shorter row padded; each row must pool its own last real token
+    mixed = tiny_tokenizer([prompt, "Release: 4 November"], return_tensors="pt", padding=True, truncation=True, max_length=n)
+    lens = mixed["attention_mask"].sum(1)
+    assert lens[0] == n and 0 < lens[1] < n  # row 0 truncated, row 1 shorter and right-padded
+    with torch.no_grad():
+        rows = predictor(mixed["input_ids"], mixed["attention_mask"])
+        for i in range(2):
+            ids = mixed["input_ids"][i : i + 1, : lens[i]]
+            torch.testing.assert_close(rows[i], predictor(ids, torch.ones_like(ids))[0], atol=1e-5, rtol=0)
+
 
 def test_rejects_left_padding_free_inputs_shape(predictor):
     with pytest.raises(ValueError):
