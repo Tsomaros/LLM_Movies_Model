@@ -22,11 +22,13 @@ class MoviePredictor(nn.Module):
         hidden = decoder(input_ids=input_ids, attention_mask=attention_mask, use_cache=False).last_hidden_state
         last = attention_mask.sum(1) - 1  # right padding: the last real token
         pooled = hidden[torch.arange(hidden.size(0), device=hidden.device), last]
-        return self.head(pooled.float())
+        with torch.autocast(device_type=hidden.device.type, enabled=False):  # autocast would cast the head's inputs back to fp16
+            return self.head(pooled.float())
 
 
-def build_predictor(cfg: TrainConfig, lm: PreTrainedModel | None = None) -> MoviePredictor:
-    cuda = torch.cuda.is_available()
+def build_predictor(cfg: TrainConfig, lm: PreTrainedModel | None = None, device: str | torch.device | None = None) -> MoviePredictor:
+    """`device` defaults to cuda when available. fp16 base, gradient checkpointing and the move happen only for CUDA."""
+    cuda = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu")).type == "cuda"
     if lm is None:
         lm = AutoModelForCausalLM.from_pretrained(cfg.base_model, dtype=torch.float16 if cuda else torch.float32)
     for p in lm.parameters():
@@ -45,7 +47,7 @@ def build_predictor(cfg: TrainConfig, lm: PreTrainedModel | None = None) -> Movi
     head = QuantileHead(lm.config.hidden_size)
     model = MoviePredictor(peft_lm, head)
     if cuda:
-        model.to("cuda")
+        model.to(device or "cuda")
     return model
 
 

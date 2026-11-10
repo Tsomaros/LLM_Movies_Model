@@ -4,5 +4,6 @@ raw/
 build/
 *.db
 *.parquet
+outputs/
 __pycache__/
 .ipynb_checkpoints/

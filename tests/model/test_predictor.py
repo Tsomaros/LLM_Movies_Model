@@ -101,3 +101,16 @@ def test_truncated_prompt_pools_last_kept_token(predictor, tiny_tokenizer, golde
 def test_rejects_left_padding_free_inputs_shape(predictor):
     with pytest.raises(ValueError):
         predictor(torch.zeros(2, 4, dtype=torch.long), torch.ones(2, 5, dtype=torch.long))
+
+
+def test_head_stays_fp32_under_autocast(predictor, tiny_tokenizer, golden_prompts):
+    enc = _enc(tiny_tokenizer, golden_prompts[:2])
+    with torch.autocast("cpu", dtype=torch.bfloat16):
+        out = predictor(enc["input_ids"], enc["attention_mask"])
+    assert out.dtype == torch.float32
+
+
+def test_build_predictor_on_cpu_keeps_fp32_and_no_checkpointing(tiny_lm):
+    model = build_predictor(CFG, lm=tiny_lm, device="cpu")
+    assert all(p.dtype == torch.float32 for p in model.parameters())
+    assert not tiny_lm.is_gradient_checkpointing

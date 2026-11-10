@@ -7,7 +7,7 @@ accumulation still makes a step. A resumed run re-derives the epoch and the offs
 that epoch's sampler from (seed, epoch) and skips the batches already trained on, so it equals an uninterrupted run. The
 validation metric is the pinball loss over the whole validation frame (scaled units) / 2; a lower one saves "best".
 A non-finite loss skips the step (counted); 10 in a row stop the run with stopped_reason "nan". metrics.jsonl (in
-`out_dir`, default outputs/<run_name>/) gets one line per validation; W&B is used only when WANDB_API_KEY is set.
+`out_dir`, default outputs/<run_name>/) gets one line per validation only (per-step train_loss and lr go to W&B); W&B is used only when WANDB_API_KEY is set.
 """
 
 import argparse
@@ -98,11 +98,11 @@ def train(
 
     resumed = resume_state(cfg, api) is not None
     if resumed:
-        model, scaler, state = load_checkpoint(cfg, "last", api, lm)
+        model, scaler, state = load_checkpoint(cfg, "last", api, lm, device)
     else:
         for seed_fn in (torch.manual_seed, np.random.seed):
             seed_fn(cfg.seed)
-        model, scaler = build_predictor(cfg, lm), TargetScaler.fit(train_df)
+        model, scaler = build_predictor(cfg, lm, device), TargetScaler.fit(train_df)
         state = {"step": 0, "epoch": 0, "best_metric": None, "bad_checks": 0, "metrics": {}, "best_step": None, "best_metrics": {}}
     model.to(device).train()
 
@@ -126,7 +126,7 @@ def train(
     if os.environ.get("WANDB_API_KEY"):
         import wandb  # lazy: only when asked for
 
-        wandb_run = wandb.init(project=cfg.wandb_project, name=cfg.run_name, config=asdict(cfg), resume="allow")
+        wandb_run = wandb.init(project=cfg.wandb_project, name=cfg.run_name, id=cfg.run_name, config=asdict(cfg), resume="allow")
 
     def checkpoint(kind):
         save_checkpoint(model, scaler, cfg, state, kind, api, optimizer=optimizer, grad_scaler=grad_scaler, lr_scheduler=scheduler)
@@ -157,7 +157,7 @@ def train(
         groups = _chunks(_chunks(order, cfg.batch_size), cfg.grad_accum)[offset:]  # skip the steps already trained on
         for group in groups:
             optimizer.zero_grad(set_to_none=True)
-            finite = True
+            finite, losses = True, []
             for indices in group:
                 b = {k: v.to(device) for k, v in collate([dataset[i] for i in indices]).items()}
                 with _autocast(device):
@@ -166,6 +166,7 @@ def train(
                 if not torch.isfinite(loss):
                     finite = False
                     break
+                losses.append(loss.item())
                 scaled = loss / len(group)
                 (grad_scaler.scale(scaled) if grad_scaler else scaled).backward()
             if finite:
@@ -180,6 +181,9 @@ def train(
                 nan_run, nan_steps = nan_run + 1, nan_steps + 1
             scheduler.step()
             state["step"] += 1
+            if wandb_run is not None:  # per-step curves go to W&B only; metrics.jsonl has validation lines only
+                lrs = {f"lr_{n}": g["lr"] for n, g in zip(("lora", "head"), optimizer.param_groups, strict=True)}
+                wandb_run.log({**({"train_loss": sum(losses) / len(losses)} if finite else {}), **lrs}, step=state["step"])
             state["epoch"] = state["step"] // steps_per_epoch
             if nan_run >= MAX_NAN_STEPS:
                 reason = "nan"

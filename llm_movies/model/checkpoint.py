@@ -109,7 +109,7 @@ def _fetch(cfg: TrainConfig, kind: str, api, folder: Path) -> bool:
 
 
 def load_checkpoint(
-    cfg: TrainConfig, kind: Kind, api=None, lm=None
+    cfg: TrainConfig, kind: Kind, api=None, lm=None, device=None
 ) -> tuple[MoviePredictor, TargetScaler, dict] | None:
     """The saved model, scaler and state, or None when the run has no such checkpoint. `lm` is the base model (default:
     downloaded from `cfg.base_model`); the adapter and head weights are loaded into it."""
@@ -117,7 +117,7 @@ def load_checkpoint(
         folder = Path(tmp) / "ck"
         if not _fetch(cfg, kind, api, folder):
             return None
-        model = build_predictor(cfg, lm=lm)
+        model = build_predictor(cfg, lm=lm, device=device)
         result = set_peft_model_state_dict(model.lm, load_peft_weights(str(folder / "adapter"), device="cpu"))
         if getattr(result, "unexpected_keys", None):
             raise RuntimeError(f"adapter has keys the model does not: {result.unexpected_keys[:3]}")
