@@ -197,6 +197,14 @@ def download(folder: Path, repo_id: str = DEFAULT_REPO, path_in_repo: str = "", 
     return len(names)
 
 
+def download_file(repo_id: str, name: str, folder: Path, *, repo_type: str = "dataset", api=None) -> Path:
+    """Download the one file `name` into `folder` (created) and return its path; nothing else in the repo is fetched."""
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    api = api or make_api()
+    return Path(_retry(lambda: api.hf_hub_download(repo_id, name, repo_type=repo_type, local_dir=folder)))
+
+
 def read_json(repo_id: str, path_in_repo: str, *, api=None, repo_type: str = "dataset"):
     """The JSON file at `path_in_repo`, or None when the repo or the file does not exist yet (a first run)."""
     api = api or make_api()

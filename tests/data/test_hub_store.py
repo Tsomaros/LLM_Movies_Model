@@ -4,7 +4,7 @@ import pytest
 import requests
 
 from llm_movies.data import hub_store
-from llm_movies.data.hub_store import DEFAULT_REPO, download, ensure_private_repo, upload, upload_files
+from llm_movies.data.hub_store import DEFAULT_REPO, download, download_file, ensure_private_repo, upload, upload_files
 
 
 def http_error(status):
@@ -183,6 +183,14 @@ def test_download_overwrites_an_older_local_copy(tmp_path):
     (out / "manifest.json").write_text("old")
     download(out, DEFAULT_REPO, "tmdb", api=FakeApi(files={"tmdb/manifest.json": b"new"}))
     assert (out / "manifest.json").read_text() == "new"
+
+
+def test_download_file_fetches_only_the_named_file(tmp_path):
+    api = FakeApi(files={"films.parquet": b"films", "locked.parquet": b"secret"})
+    path = download_file("me/data", "films.parquet", tmp_path / "d", api=api)
+    assert path == tmp_path / "d" / "films.parquet" and path.read_bytes() == b"films"
+    assert [kw["filename"] for name, kw in api.calls if name == "hf_hub_download"] == ["films.parquet"]
+    assert [p.name for p in (tmp_path / "d").iterdir()] == ["films.parquet"]  # locked.parquet never touched
 
 
 def test_download_retries_a_5xx(tmp_path, no_sleep):

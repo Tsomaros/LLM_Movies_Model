@@ -1,0 +1,171 @@
+import copy
+import json
+from dataclasses import replace
+from datetime import date
+
+import pandas as pd
+import pytest
+import torch
+from hub_fakes import FakeHub
+from test_data import _film
+
+from llm_movies.model import train as train_module
+from llm_movies.model.checkpoint import load_checkpoint, resume_state
+from llm_movies.model.config import TrainConfig
+from llm_movies.model.data import FilmDataset, TargetScaler, load_frames
+from llm_movies.model.predictor import build_predictor
+from llm_movies.model.train import evaluate, train
+
+CFG = TrainConfig(
+    run_name="t", base_model="unused", hub_repo="me/runs", max_len=48, batch_size=8, grad_accum=2, epochs=3,
+    eval_every=1.0, patience=5, lr_lora=1e-2, lr_head=3e-2, save_every_steps=2, seed=3,
+)  # 40 train films -> 5 micro-batches -> 3 optimizer steps per epoch (the last one a partial accumulation)
+
+
+def _frame(n_train=40, n_val=16):
+    rows = []
+    for i in range(n_train + n_val):
+        film = replace(_film(2000 + i % 14), runtime=80 + i, budget=1e7 * (1 + i % 7))
+        rows.append(
+            {
+                "tmdb_id": i + 1, "release_date": date(2000 + i % 14, 5, 14), "split": "train" if i < n_train else "validation",
+                "resolved_json": film.to_json(), "revenue_log": None if i % 9 == 4 else 16.0 + 0.05 * (i % 40),
+                "score": None if i % 11 == 5 else 5.0 + (i % 5) * 0.5, "score_weight": None if i % 11 == 5 else 3.0 + i % 4,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+@pytest.fixture
+def data_dir(tmp_path):
+    _frame().to_parquet(tmp_path / "films.parquet")
+    return tmp_path
+
+
+@pytest.fixture
+def base(tiny_lm):
+    return copy.deepcopy(tiny_lm)  # pristine copy: train() wraps the lm it gets in place
+
+
+def _run(cfg, data_dir, tmp_path, base, tok, hub, name="out"):
+    return train(cfg, data_dir, api=hub, lm=copy.deepcopy(base), tokenizer=tok, device="cpu", out_dir=tmp_path / name)
+
+
+def _trainable(model):
+    return {n: p.detach().clone() for n, p in model.named_parameters() if p.requires_grad}
+
+
+def _val_loss(model, scaler, cfg, data_dir, tok):
+    _, val = load_frames(data_dir, cfg)
+    return evaluate(model, FilmDataset(val, scaler, cfg, False), scaler, tok, cfg, torch.device("cpu"))[0]
+
+
+def _lines(path):
+    return [json.loads(x) for x in path.read_text().splitlines()]
+
+
+def test_loss_decreases(data_dir, tmp_path, base, tiny_tokenizer):
+    torch.manual_seed(CFG.seed)
+    initial = build_predictor(CFG, lm=copy.deepcopy(base))
+    train_df, _ = load_frames(data_dir, CFG)
+    before = _val_loss(initial, TargetScaler.fit(train_df), CFG, data_dir, tiny_tokenizer)
+    hub = FakeHub()
+    summary = _run(CFG, data_dir, tmp_path, base, tiny_tokenizer, hub)
+    model, scaler, state = load_checkpoint(CFG, "last", api=hub, lm=copy.deepcopy(base))
+    after = _val_loss(model, scaler, CFG, data_dir, tiny_tokenizer)
+    assert after < before - 0.01
+    assert summary["stopped_reason"] == "epochs" and state["step"] == 9 and state["epoch"] == 3
+    lines = _lines(tmp_path / "out" / "metrics.jsonl")
+    assert [x["step"] for x in lines] == [3, 6, 9]  # eval_every 1.0 epoch = 3 steps, none repeated at the end
+    assert lines[-1]["val_loss"] == pytest.approx(after, abs=1e-5) and summary["best_metric"] <= lines[0]["val_loss"]
+
+
+def test_early_stopping_by_patience(data_dir, tmp_path, base, tiny_tokenizer):
+    cfg = replace(CFG, lr_lora=0.0, lr_head=0.0, patience=2, epochs=10)
+    hub = FakeHub()
+    summary = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, hub)
+    assert len(_lines(tmp_path / "out" / "metrics.jsonl")) == 3  # the first check sets the best, the next two bring nothing
+    assert summary["stopped_reason"] == "patience" and summary["best_step"] == 3
+    assert resume_state(cfg, api=hub)["step"] == 9  # stopped well before 10 epochs, and saved where it stopped
+
+
+def test_best_checkpoint_is_best_metric(data_dir, tmp_path, base, tiny_tokenizer):
+    cfg = replace(CFG, lr_lora=1e-2, lr_head=0.5, epochs=4)  # a head rate this large overshoots: the best is not the last
+    hub = FakeHub()
+    summary = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, hub)
+    values = [x["val_loss"] for x in _lines(tmp_path / "out" / "metrics.jsonl")]
+    assert summary["best_metric"] == pytest.approx(min(values))
+    model, scaler, state = load_checkpoint(cfg, "best", api=hub, lm=copy.deepcopy(base))
+    assert state["best_metric"] == pytest.approx(min(values)) and state["step"] == 3 * (1 + values.index(min(values)))
+    assert _val_loss(model, scaler, cfg, data_dir, tiny_tokenizer) == pytest.approx(min(values), abs=1e-5)  # the saved weights score it
+    assert summary["best_step"] == state["step"] and "revenue" in summary["metrics"] and "score" in summary["metrics"]
+
+
+class Killed(Exception):
+    pass
+
+
+class KillingHub(FakeHub):
+    """Stores the `last` commit of `kill_at` optimizer steps, then 'loses the session'."""
+
+    def __init__(self, kill_at):
+        super().__init__()
+        self.kill_at = kill_at
+
+    def create_commit(self, repo_id, repo_type, operations, commit_message):
+        super().create_commit(repo_id, repo_type, operations, commit_message)
+        if self.files.get("runs/t/last/state.json") and json.loads(self.files["runs/t/last/state.json"])["step"] == self.kill_at:
+            raise Killed
+
+
+def test_resume_continues_same_run(data_dir, tmp_path, base, tiny_tokenizer):
+    straight = FakeHub()
+    s1 = _run(CFG, data_dir, tmp_path, base, tiny_tokenizer, straight, "straight")
+    hub = KillingHub(kill_at=4)  # step 4 = epoch 1, one step in: resume must skip that epoch's first 2 micro-batches
+    with pytest.raises(Killed):
+        _run(CFG, data_dir, tmp_path, base, tiny_tokenizer, hub, "resumed")
+    assert resume_state(CFG, api=hub)["step"] == 4
+    hub.kill_at = -1
+    s2 = _run(CFG, data_dir, tmp_path, base, tiny_tokenizer, hub, "resumed")
+    a = load_checkpoint(CFG, "last", api=straight, lm=copy.deepcopy(base))
+    b = load_checkpoint(CFG, "last", api=hub, lm=copy.deepcopy(base))
+    assert a[2]["step"] == b[2]["step"] == 9
+    pa, pb = _trainable(a[0]), _trainable(b[0])
+    assert pa.keys() == pb.keys() and any(p.abs().sum() > 0 for p in pa.values())
+    for name in pa:
+        torch.testing.assert_close(pa[name], pb[name], atol=1e-5, rtol=0)
+    assert s1["best_metric"] == pytest.approx(s2["best_metric"], abs=1e-5) and s1["best_step"] == s2["best_step"]
+    assert (a[1].mean, a[1].std) == (b[1].mean, b[1].std)
+    steps = [[x["step"] for x in _lines(tmp_path / d / "metrics.jsonl")] for d in ("straight", "resumed")]
+    assert steps == [[3, 6, 9], [3, 6, 9]]
+
+
+def _nan_in_training(monkeypatch, nan_calls):
+    """pinball_loss gives NaN on the first `nan_calls` training calls (those whose predictions need grad)."""
+    real, seen = train_module.pinball_loss, {"n": 0}
+
+    def fake(pred, target, mask, weight):
+        loss = real(pred, target, mask, weight)
+        if pred.requires_grad:
+            seen["n"] += 1
+            if seen["n"] <= nan_calls:
+                return loss * float("nan")
+        return loss
+
+    monkeypatch.setattr(train_module, "pinball_loss", fake)
+
+
+def test_nan_steps_skipped_then_abort(data_dir, tmp_path, base, tiny_tokenizer, monkeypatch):
+    # the first micro-batch of each of the first three steps is NaN: those steps are skipped and training goes on
+    _nan_in_training(monkeypatch, nan_calls=3)
+    hub = FakeHub()
+    summary = _run(CFG, data_dir, tmp_path, base, tiny_tokenizer, hub, "some")
+    assert summary["stopped_reason"] == "epochs" and summary["nan_steps"] == 3
+    assert resume_state(CFG, api=hub)["step"] == 9  # a skipped step still counts, so schedule and data position stay aligned
+    # every step bad: 10 in a row stop the run with a message, no exception
+    monkeypatch.undo()
+    _nan_in_training(monkeypatch, nan_calls=10**9)
+    cfg = replace(CFG, epochs=10)
+    summary = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, FakeHub(), "all")
+    assert summary["stopped_reason"] == "nan" and summary["nan_steps"] == 10
+    assert "non-finite" in summary["error"] and summary["step"] == 10  # stopped right at the 10th bad step
