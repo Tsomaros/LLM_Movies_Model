@@ -262,6 +262,7 @@ def test_collator_rejects_empty_text(tiny_tokenizer, golden_prompts, bad):
 def test_collator_rejects_all_zero_attention_row(tiny_tokenizer, golden_prompts):
     class ZeroMask:
         padding_side = "right"
+        pad_token = "<pad>"
         truncation_side = "right"
 
         def __call__(self, texts, **kw):
@@ -271,3 +272,33 @@ def test_collator_rejects_all_zero_attention_row(tiny_tokenizer, golden_prompts)
 
     with pytest.raises(ValueError, match="all-zero attention"):
         _collate(ZeroMask(), golden_prompts[:2], 32)
+
+
+def test_collator_pads_with_eos_when_tokenizer_has_no_pad_token(tiny_tokenizer, golden_prompts):
+    bare = copy.deepcopy(tiny_tokenizer)
+    bare.pad_token = None
+    assert bare.pad_token is None
+    out = _collate(bare, ["Release", golden_prompts[0]], 16)
+    mask = out["attention_mask"]
+    n = int(mask[0].sum())
+    assert 0 < n < 16 and mask[0, :n].all() and not mask[0, n:].any()  # only real tokens are marked
+    assert out["input_ids"][0, n:].eq(tiny_tokenizer.eos_token_id).all()  # padded with the eos id
+    assert mask[1].sum() == 16
+    assert bare.pad_token is None  # the caller's tokenizer is untouched
+
+
+def test_collator_rejects_tokenizer_without_pad_or_eos(tiny_tokenizer):
+    bare = copy.deepcopy(tiny_tokenizer)
+    bare.pad_token = None
+    bare.eos_token = None
+    with pytest.raises(ValueError, match="pad token"):
+        Collator(bare, 16)
+
+
+def test_scaler_safe_for_all_null_and_constant_columns():
+    df = pd.DataFrame({"revenue_log": [None, None, None], "score": [6.0, 6.0, 6.0]})
+    scaler = TargetScaler.fit(df)
+    assert scaler.mean == [0.0, 6.0] and scaler.std == [1.0, 1.0]
+    _target, mask = scaler.transform(df)
+    assert not mask[:, 0].any() and mask[:, 1].all()
+    assert torch.isfinite(scaler.inverse(torch.zeros(3, 2, 3))).all()

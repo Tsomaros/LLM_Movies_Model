@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -47,7 +48,11 @@ class TargetScaler:
     @classmethod
     def fit(cls, train_df: pd.DataFrame) -> TargetScaler:
         cols = [train_df[c].dropna() for c in _COLUMNS]
-        return cls([float(c.mean()) for c in cols], [float(c.std(ddof=0)) or 1.0 for c in cols])
+        means = [float(c.mean()) for c in cols]
+        stds = [float(c.std(ddof=0)) for c in cols]
+        means = [m if math.isfinite(m) else 0.0 for m in means]  # an all-null column
+        stds = [s if math.isfinite(s) and s >= 1e-8 else 1.0 for s in stds]  # all-null or constant column
+        return cls(means, stds)
 
     def transform(self, df: pd.DataFrame) -> tuple[torch.Tensor, torch.Tensor]:
         """(target[N,2] standardised, 0.0 where unknown; mask[N,2] True where known)."""
@@ -102,7 +107,12 @@ class Collator:
     """Tokenizes a batch, always right-padded and right-truncated (the predictor pools at the last real token)."""
 
     def __init__(self, tokenizer, max_len: int):
-        self.tokenizer = copy.copy(tokenizer)  # a copy, so forcing the sides never changes the caller's tokenizer
+        # a deep copy, so forcing the sides or the pad token never changes the caller's tokenizer
+        self.tokenizer = copy.deepcopy(tokenizer)
+        if getattr(self.tokenizer, "pad_token", None) is None:
+            if getattr(self.tokenizer, "eos_token", None) is None:
+                raise ValueError("tokenizer has neither a pad token nor an eos token to pad with")
+            self.tokenizer.pad_token = self.tokenizer.eos_token  # base Llama/Qwen checkpoints ship without a pad token
         self.tokenizer.padding_side = "right"
         self.tokenizer.truncation_side = "right"
         self.max_len = max_len
