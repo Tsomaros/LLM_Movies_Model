@@ -117,8 +117,8 @@ tests/eval/test_probe.py, tests/conftest.py (tiny model + tokenizer fixtures)
 - `FilmDataset(df, scaler, cfg, train: bool)` with `.set_epoch(epoch: int)`: `__getitem__` returns `{"text", "target", "mask", "weight"}`; text = `render(ResolvedFilm.from_json(row.resolved_json), hidden, anonymize=cfg.anonymize)` where hidden = `drop_groups` ∪ (training only) each `RANDOM_HIDE` group with probability `hide_p` (a per-item RNG seeded from `(cfg.seed, epoch, index)` so a resumed run renders the same text); weight = `[1, score_weight]`.
 - `Collator(tokenizer, max_len)` → `input_ids, attention_mask, target, mask, weight` (right padding, right truncation).
 - `revenue_sampler(df, factor, seed, epoch) -> torch.utils.data.Sampler` (weights `1 + (factor - 1) * has_revenue`, `len(df)` draws per epoch, with replacement).
-- [ ] **Step 1: Failing tests:** `test_validation_renders_without_random_hiding` (same text twice, no `not given` added beyond missing fields), `test_drop_groups_always_hidden`, `test_hiding_rate_close_to_hide_p` (2,000 renders → each group hidden 30% ± 4%), `test_same_seed_epoch_index_same_text`, `test_scaler_roundtrip` (inverse(transform) ≈ original), `test_locked_file_never_opened` (call with a dir holding a `locked.parquet` that raises on read → no error), `test_sampler_oversamples_revenue` (factor 2 → revenue share ≈ 2r/(1+r) ± 0.03).
-- [ ] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(model): dataset, collator and sampler`.
+- [x] **Step 1: Failing tests:** `test_validation_renders_without_random_hiding` (same text twice, no `not given` added beyond missing fields), `test_drop_groups_always_hidden`, `test_hiding_rate_close_to_hide_p` (2,000 renders → each group hidden 30% ± 4%), `test_same_seed_epoch_index_same_text`, `test_scaler_roundtrip` (inverse(transform) ≈ original), `test_locked_file_never_opened` (call with a dir holding a `locked.parquet` that raises on read → no error), `test_sampler_oversamples_revenue` (factor 2 → revenue share ≈ 2r/(1+r) ± 0.03).
+- [x] **Step 2–4:** FAIL → implement → PASS. **Step 5:** Commit `feat(model): dataset, collator and sampler`.
 
 ### Task 6: Metrics
 

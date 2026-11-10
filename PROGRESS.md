@@ -1,6 +1,16 @@
 # Progress
 
 ## Now
+- 2026-11-10: **Phase 2 Task 5 done** (dataset, collator, sampler) in `llm_movies/model/data.py`. `load_frames` takes the data dir
+  or the films.parquet path and reads only films.parquet (train sampled by `sample_frac` with the seed, validation; calibration
+  dropped). `TargetScaler` (mean 0 / std 1 fallback for empty or near-constant columns, JSON round trip). `FilmDataset` renders with
+  `drop_groups` plus, in training only, each `RANDOM_HIDE` group at `hide_p` from an RNG seeded by (seed, epoch, index); missing
+  targets are 0.0 with mask False and a missing score weight is 0.0. `Collator` works on a deep copy of the tokenizer, forces right
+  padding and right truncation whatever its default, falls back to `pad_token = eos_token` (Llama 3.2 base has no pad token), and
+  raises on an empty text or an all-zero attention row. `revenue_sampler` oversamples revenue films with replacement. 1021 tests pass,
+  ruff clean; code-reviewer (spec ✅, approved; the pad-token and NaN-std fixes came from its minors, one fix round) and test-auditor
+  (three passes) run on Windows. Next: Task 6. Deferred minors: `TargetScaler.fit` does not coerce with `pd.to_numeric` as
+  `transform` does.
 - 2026-11-10: **Phase 2 Task 4 done** (predictor). `llm_movies/model/config.py`: `TrainConfig` (frozen, plan defaults) and
   `load_train_config` (`extends` relative to the child file; unknown keys and `drop_groups` outside `HIDEABLE` raise).
   `llm_movies/model/predictor.py`: `MoviePredictor` / `build_predictor` (frozen base, LoRA r16/a32/0.05 on all-linear, fp32 LoRA and

@@ -284,21 +284,38 @@ def test_collator_pads_with_eos_when_tokenizer_has_no_pad_token(tiny_tokenizer, 
     assert 0 < n < 16 and mask[0, :n].all() and not mask[0, n:].any()  # only real tokens are marked
     assert out["input_ids"][0, n:].eq(tiny_tokenizer.eos_token_id).all()  # padded with the eos id
     assert mask[1].sum() == 16
-    assert bare.pad_token is None  # the caller's tokenizer is untouched
+    assert tiny_tokenizer.pad_token_id != tiny_tokenizer.eos_token_id  # so "eos id" below cannot be the pad id
+    assert not out["input_ids"][0, n:].eq(tiny_tokenizer.pad_token_id).any()
+    assert bare.pad_token is None and bare.pad_token_id is None  # the caller's tokenizer is untouched
+    assert tiny_tokenizer.pad_token == "<pad>"
 
 
 def test_collator_rejects_tokenizer_without_pad_or_eos(tiny_tokenizer):
     bare = copy.deepcopy(tiny_tokenizer)
     bare.pad_token = None
     bare.eos_token = None
-    with pytest.raises(ValueError, match="pad token"):
+    assert bare.pad_token is None and bare.eos_token is None  # the premise
+    with pytest.raises(ValueError, match="neither a pad token nor an eos token"):
         Collator(bare, 16)
+    assert bare.pad_token is None  # nothing was patched in before failing
 
 
 def test_scaler_safe_for_all_null_and_constant_columns():
     df = pd.DataFrame({"revenue_log": [None, None, None], "score": [6.0, 6.0, 6.0]})
     scaler = TargetScaler.fit(df)
     assert scaler.mean == [0.0, 6.0] and scaler.std == [1.0, 1.0]
-    _target, mask = scaler.transform(df)
+    target, mask = scaler.transform(df)
     assert not mask[:, 0].any() and mask[:, 1].all()
-    assert torch.isfinite(scaler.inverse(torch.zeros(3, 2, 3))).all()
+    assert torch.equal(target, torch.zeros(3, 2))  # unknown -> 0.0; score (6 - 6) / 1 = 0, not 0/0 = nan
+    # by hand: value * std + mean with std 1 -> revenue_log: 2 * 1 + 0 = 2; score: 2 * 1 + 6 = 8
+    back = scaler.inverse(torch.full((3, 2, 3), 2.0))
+    assert torch.equal(back[:, 0, :], torch.full((3, 3), 2.0))
+    assert torch.equal(back[:, 1, :], torch.full((3, 3), 8.0))
+    # a constant-but-not-identical column (std 5e-11 < 1e-8) is also unscaled: (6.0 + 1e-10 - 6.0) / 1 stays tiny
+    near = pd.DataFrame({"revenue_log": [1.0, 3.0], "score": [6.0, 6.0 + 1e-10]})
+    s2 = TargetScaler.fit(near)
+    assert s2.mean[0] == pytest.approx(2.0) and s2.std[0] == pytest.approx(1.0)  # mean 2, population std 1
+    assert s2.std[1] == 1.0
+    t2 = s2.transform(near)[0]
+    assert t2[:, 0].tolist() == [-1.0, 1.0]  # (1 - 2) / 1 and (3 - 2) / 1
+    assert t2[:, 1].abs().max() < 1e-6  # dividing by 5e-11 instead would give +-1
