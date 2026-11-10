@@ -1,4 +1,5 @@
 import copy
+import io
 import json
 from dataclasses import replace
 from datetime import date
@@ -90,10 +91,11 @@ def test_early_stopping_by_patience(data_dir, tmp_path, base, tiny_tokenizer):
 
 
 def test_best_checkpoint_is_best_metric(data_dir, tmp_path, base, tiny_tokenizer):
-    cfg = replace(CFG, lr_lora=1e-2, lr_head=0.5, epochs=4)  # a head rate this large overshoots: the best is not the last
+    cfg = replace(CFG, lr_lora=1e-2, lr_head=0.02, epochs=4)  # measured: val loss falls, then rises again, so the best is a middle check
     hub = FakeHub()
     summary = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, hub)
     values = [x["val_loss"] for x in _lines(tmp_path / "out" / "metrics.jsonl")]
+    assert 0 < values.index(min(values)) < len(values) - 1  # precondition: best is neither first nor last, so "save the latest" fails
     assert summary["best_metric"] == pytest.approx(min(values))
     model, scaler, state = load_checkpoint(cfg, "best", api=hub, lm=copy.deepcopy(base))
     assert state["best_metric"] == pytest.approx(min(values)) and state["step"] == 3 * (1 + values.index(min(values)))
@@ -136,6 +138,12 @@ def test_resume_continues_same_run(data_dir, tmp_path, base, tiny_tokenizer):
         torch.testing.assert_close(pa[name], pb[name], atol=1e-5, rtol=0)
     assert s1["best_metric"] == pytest.approx(s2["best_metric"], abs=1e-5) and s1["best_step"] == s2["best_step"]
     assert (a[1].mean, a[1].std) == (b[1].mean, b[1].std)
+    oa, ob = (torch.load(io.BytesIO(h.files["runs/t/last/optimizer.pt"]), weights_only=True) for h in (straight, hub))
+    assert oa["state"].keys() == ob["state"].keys() and oa["state"]
+    for k in oa["state"]:  # AdamW moments and step counts after 9 steps
+        assert float(oa["state"][k]["step"]) == float(ob["state"][k]["step"]) == 9
+        for moment in ("exp_avg", "exp_avg_sq"):
+            torch.testing.assert_close(oa["state"][k][moment], ob["state"][k][moment], atol=1e-5, rtol=0)
     steps = [[x["step"] for x in _lines(tmp_path / d / "metrics.jsonl")] for d in ("straight", "resumed")]
     assert steps == [[3, 6, 9], [3, 6, 9]]
 
@@ -169,3 +177,39 @@ def test_nan_steps_skipped_then_abort(data_dir, tmp_path, base, tiny_tokenizer, 
     summary = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, FakeHub(), "all")
     assert summary["stopped_reason"] == "nan" and summary["nan_steps"] == 10
     assert "non-finite" in summary["error"] and summary["step"] == 10  # stopped right at the 10th bad step
+
+
+def test_nan_steps_do_not_update_weights(data_dir, tmp_path, base, tiny_tokenizer, monkeypatch):
+    _nan_in_training(monkeypatch, nan_calls=10**9)
+    cfg = replace(CFG, epochs=1)  # 3 steps, all NaN: fewer than 10, so the run finishes
+    hub = FakeHub()
+    summary = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, hub)
+    assert summary["stopped_reason"] == "epochs" and summary["nan_steps"] == 3
+    torch.manual_seed(cfg.seed)
+    initial = _trainable(build_predictor(cfg, lm=copy.deepcopy(base)))
+    after = _trainable(load_checkpoint(cfg, "last", api=hub, lm=copy.deepcopy(base))[0])
+    assert initial.keys() == after.keys()
+    for name in initial:
+        torch.testing.assert_close(after[name], initial[name], atol=0, rtol=0)  # no step ran: not even weight decay
+
+
+def test_a_good_step_resets_the_nan_counter(data_dir, tmp_path, base, tiny_tokenizer, monkeypatch):
+    """Every other optimizer step is NaN (15 of 30, never two in a row): the run must not abort on the 10th bad step."""
+    real, pos = train_module.pinball_loss, {"step": 0, "micro": 0}
+
+    def fake(pred, target, mask, weight):
+        loss = real(pred, target, mask, weight)
+        if not pred.requires_grad:
+            return loss
+        size = 1 if pos["step"] % 3 == 2 else 2  # micro-batches in this step: the last step of an epoch has one
+        if pos["step"] % 2 == 0:  # NaN breaks the step at its first micro-batch
+            pos.update(step=pos["step"] + 1, micro=0)
+            return loss * float("nan")
+        pos["micro"] += 1
+        if pos["micro"] == size:
+            pos.update(step=pos["step"] + 1, micro=0)
+        return loss
+
+    monkeypatch.setattr(train_module, "pinball_loss", fake)
+    summary = _run(replace(CFG, epochs=10), data_dir, tmp_path, base, tiny_tokenizer, FakeHub())
+    assert summary["stopped_reason"] == "epochs" and summary["step"] == 30 and summary["nan_steps"] == 15
