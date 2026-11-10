@@ -1,7 +1,7 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-14 done; Task 15 Steps 1-4 done, Step 5 (`min_votes`) waits on the owner.
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. **Phase 1 done** (2026-11-10). Next: write the Phase 2 plan from the roadmap.
 - 2026-11-07: two dry-run fixes done. TMDB pull runs `--workers` threads (default 8) under the shared 40/s cap, writing in id
   order on the main thread (expected about 10 h instead of 70 h; the real speed is unmeasured until Colab). `release_type`: the
   country is chosen among those with a cinema entry (US first), only TMDB type 4 counts as streaming-only and only from 2007;
@@ -17,8 +17,8 @@
   52,781, validation 95,216, test 367,451, holdout 0 (`base_model_cutoff` is unset, so every film from 2019 on is test until
   Phase 2 picks the base model and sets it, which needs a rebuild). Open-split dataset: 34,354 films (17,312 with revenue,
   28,907 with score at min_votes 50). The Hub manifest was not checked from here; the owner reported the run complete.
-- Next: Task 15 Step 5, the `min_votes` decision (the report's table: 10 -> 85,861 score films, 20 -> 53,217, 50 -> 28,907,
-  100 -> 18,509). Then Phase 1 is done and the Phase 2 plan is written.
+- 2026-11-10: Task 15 Step 5: the owner kept `min_votes` at 50 (28,907 score films; 20 would give 53,217 with noisier scores,
+  and scores are already weighted by log1p(votes)). No config change, so the exported dataset on the Hub stands as built.
 - Open for Phase 2: the outcome-word audit finds about 170 open films whose tagline or synopsis mentions awards or box office
   (Oscar 56, award-winning 50, Academy Award 24, gross 14, blockbuster 12, box office 8, Golden Globe 4, record-breaking 4,
   smash hit 2; overlaps possible), plus 223 dollar figures (mostly plot money in the samples). Decide whether the prompt masks
