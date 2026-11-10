@@ -123,16 +123,32 @@ def test_drop_groups_always_hidden(frames, monkeypatch):
 def test_hiding_rate_close_to_hide_p(frames, monkeypatch):
     train, _ = frames
     seen = _spy_hidden(monkeypatch)
-    ds = FilmDataset(train.iloc[:1], TargetScaler.fit(train), CFG, train=True)
+    scaler = TargetScaler.fit(train)
     n = 2000
-    for epoch in range(n):
+    ds = FilmDataset(train.iloc[:1], scaler, CFG, train=True)
+    texts = []
+    for epoch in range(n):  # one film over many epochs
         ds.set_epoch(epoch)
-        ds[0]
-    assert len(seen) == n
-    for g in RANDOM_HIDE:
-        rate = sum(g in h for h in seen) / n
-        assert abs(rate - CFG.hide_p) < 0.04, (g, rate)
-    assert all(h <= set(RANDOM_HIDE) for h in seen)  # only random-hide groups, nothing else
+        texts.append(ds[0]["text"])
+    by_epoch = list(seen)
+    seen.clear()
+    many = FilmDataset(pd.concat([train.iloc[:1]] * n, ignore_index=True), scaler, CFG, train=True)
+    for i in range(n):  # one epoch over many films (same film, so only the index differs)
+        many[i]
+    by_index = list(seen)
+    film = ResolvedFilm.from_json(train.iloc[0].resolved_json)
+    assert texts == [render(film, h) for h in by_epoch]  # the hidden set that was passed is the one rendered
+    for hidden_sets in (by_epoch, by_index):
+        assert len(hidden_sets) == n
+        for g in RANDOM_HIDE:
+            rate = sum(g in h for h in hidden_sets) / n
+            assert abs(rate - CFG.hide_p) < 0.04, (g, rate)
+        assert all(h <= set(RANDOM_HIDE) for h in hidden_sets)  # only random-hide groups, nothing else
+        assert not any({"release_type", "themes"} & h for h in hidden_sets)
+        # groups are drawn independently: P(both) = p^2 = 0.09, not p = 0.3 (one shared draw)
+        a, b = RANDOM_HIDE[0], RANDOM_HIDE[1]
+        both = sum(a in h and b in h for h in hidden_sets) / n
+        assert abs(both - CFG.hide_p**2) < 0.04, both
 
 
 def test_same_seed_epoch_index_same_text(frames):
@@ -147,6 +163,9 @@ def test_same_seed_epoch_index_same_text(frames):
     other = FilmDataset(train, scaler, replace(CFG, seed=8), train=True)
     other.set_epoch(2)
     assert any(other[i]["text"] != a[i]["text"] for i in range(len(train)))
+    # the item index is part of the seed: the same film at different indexes is hidden differently
+    same_film = FilmDataset(pd.concat([train.iloc[:1]] * 30, ignore_index=True), scaler, CFG, train=True)
+    assert len({same_film[i]["text"] for i in range(30)}) > 1
 
 
 def test_item_targets_masks_and_weights(frames):
@@ -169,6 +188,8 @@ def test_scaler_roundtrip(frames):
     scaler = TargetScaler.fit(train)
     rev = train.revenue_log.dropna()
     assert scaler.mean[0] == pytest.approx(rev.mean()) and scaler.std[0] == pytest.approx(rev.std(ddof=0))
+    # by hand: known train scores are 6, 7, 8 -> mean 7, population std sqrt(2/3); revenue_log 18, 19, 20 -> 19, sqrt(2/3)
+    assert scaler.mean == pytest.approx([19.0, 7.0]) and scaler.std == pytest.approx([(2 / 3) ** 0.5] * 2)
     target, mask = scaler.transform(train)
     assert target.shape == (len(train), 2) and mask.shape == (len(train), 2)
     assert target[mask[:, 0], 0].mean().abs() < 1e-5  # standardised over known rows
@@ -217,6 +238,9 @@ def test_collator_shapes(tiny_tokenizer, golden_prompts):
 def test_collator_forces_right_padding_and_truncation_on_left_tokenizer(tiny_tokenizer, golden_prompts):
     left = _left(tiny_tokenizer)
     long_ = golden_prompts[0]
+    raw = left(["Release", long_], padding=True, truncation=True, max_length=16, return_tensors="pt")
+    assert raw["attention_mask"][0, 0] == 0  # the premise: this tokenizer on its own pads on the left
+    assert raw["input_ids"][1].tolist() != tiny_tokenizer(long_, truncation=True, max_length=16)["input_ids"]
     out = _collate(left, ["Release", long_], 16)
     mask = out["attention_mask"]
     assert mask.shape[1] == 16 and mask[1].sum() == 16 and 0 < mask[0].sum() < 16
@@ -231,7 +255,7 @@ def test_collator_forces_right_padding_and_truncation_on_left_tokenizer(tiny_tok
 
 @pytest.mark.parametrize("bad", ["", "   ", " \n\t "])
 def test_collator_rejects_empty_text(tiny_tokenizer, golden_prompts, bad):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="empty text"):
         _collate(tiny_tokenizer, [golden_prompts[0], bad], 32)
 
 
@@ -245,5 +269,5 @@ def test_collator_rejects_all_zero_attention_row(tiny_tokenizer, golden_prompts)
             enc["attention_mask"] = torch.zeros_like(enc["attention_mask"])
             return enc
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="all-zero attention"):
         _collate(ZeroMask(), golden_prompts[:2], 32)
