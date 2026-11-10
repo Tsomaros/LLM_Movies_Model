@@ -475,3 +475,31 @@ def test_anonymize_free_text_person_label_wins_over_company_and_blank_names_skip
     lines = _lines(render(r, anonymize=True))
     assert lines["Tagline"] == "Person 1"
     assert lines["Synopsis"] == "a b"
+
+
+def test_anonymize_free_text_hidden_group_exact_labels():
+    # lines: director Person 1, cast Person 2 and 3 (writers hidden); hidden people then take 4.. in role order:
+    # writers Wri Ter 4, Ann Other 5, producer Pro Ducer 6, composer Com Poser 7; hidden companies keep 1 and 2
+    r = film(tagline="Pro Ducer, Com Poser, Studio One, Big Dist", synopsis="Wri Ter and Lead Actor and Studio Two in Saga.")
+    hidden = frozenset({"writers", "producers", "composer", "companies", "distributor", "franchise"})
+    lines = _lines(render(r, hidden, anonymize=True))
+    assert lines["Tagline"] == "Person 6, Person 7, Company 1, Distributor"
+    assert lines["Synopsis"] == "Person 4 and Person 2 and Company 2 in Franchise."  # shown cast keeps its line's number
+    assert lines["Cast"].startswith("Person 2") and "Person 3" in lines["Cast"]
+
+
+def test_anonymize_free_text_name_replaced_before_120_word_cut():
+    # "Pixar Animation Studios" (3 words) becomes "Company 1" (2 words): replacing before the cut keeps the label whole;
+    # cutting first would end the text on the raw name "Pixar Animation"
+    filler = " ".join(["w"] * 118)
+    r = film(companies=[company("Pixar Animation Studios")], synopsis=filler + " Pixar Animation Studios tail more")
+    assert _lines(render(r, anonymize=True))["Synopsis"] == filler + " Company 1..."
+    assert _lines(render(r))["Synopsis"] == filler + " Pixar Animation..."  # anonymize=False: names untouched
+
+
+def test_anonymize_free_text_bounds_with_punctuation_in_names():
+    r = film(distributor=company("Lucasfilm Ltd."), tagline="By Lucasfilm Ltd., not xLucasfilm Ltd. or Lucasfilm Ltd.x",
+             synopsis="Dee Rector's film; _Dee Rector")
+    lines = _lines(render(r, anonymize=True))
+    assert lines["Tagline"] == "By Distributor, not xLucasfilm Ltd. or Lucasfilm Ltd.x"
+    assert lines["Synopsis"] == "Person 1's film; _Dee Rector"
