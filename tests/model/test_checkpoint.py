@@ -81,6 +81,11 @@ def _predict(m, tok, prompts):
         return m(enc["input_ids"], enc["attention_mask"])
 
 
+def _opt(model):
+    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-3)
+    return {"optimizer": opt, "lr_scheduler": torch.optim.lr_scheduler.StepLR(opt, step_size=1, gamma=0.5)}
+
+
 def test_save_load_roundtrip_same_predictions(model, scaler, base, tiny_tokenizer, golden_prompts):
     hub = FakeHub()
     save_checkpoint(model, scaler, CFG, STATE, "best", api=hub)
@@ -99,20 +104,19 @@ def test_save_load_roundtrip_same_predictions(model, scaler, base, tiny_tokenize
 
 def test_upload_is_one_commit(model, scaler):
     hub = FakeHub()
-    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-3)
-    save_checkpoint(model, scaler, CFG, STATE, "last", api=hub, optimizer=opt)
+    save_checkpoint(model, scaler, CFG, STATE, "last", api=hub, **_opt(model))
     assert len(hub.commits) == 1
     names = hub.commits[0]
     assert names[-1] == "runs/run1/last/state.json"
     assert all(n.startswith("runs/run1/last/") for n in names)
-    for part in ("adapter/adapter_model.safetensors", "head.pt", "scaler.json", "train_config.yaml", "optimizer.pt", "rng.pt"):
+    for part in ("adapter/adapter_model.safetensors", "head.pt", "scaler.json", "train_config.yaml", "optimizer.pt", "lr_scheduler.pt", "grad_scaler.pt", "rng.pt"):
         assert f"runs/run1/last/{part}" in names
     assert json.loads(hub.files["runs/run1/last/state.json"]) == STATE
 
 
 def test_interrupted_upload_resumes_from_previous(model, scaler, base, tiny_tokenizer, golden_prompts):
     hub = FakeHub()
-    save_checkpoint(model, scaler, CFG, STATE, "last", api=hub)
+    save_checkpoint(model, scaler, CFG, STATE, "last", api=hub, **_opt(model))
     before = dict(hub.files)
     expected = _predict(model, tiny_tokenizer, golden_prompts[:2])
     with torch.no_grad():
@@ -121,7 +125,7 @@ def test_interrupted_upload_resumes_from_previous(model, scaler, base, tiny_toke
                 p.add_(1.0)
     hub.fail_commit = True
     with pytest.raises(RuntimeError, match="killed"):
-        save_checkpoint(model, scaler, CFG, {**STATE, "step": 20}, "last", api=hub)
+        save_checkpoint(model, scaler, CFG, {**STATE, "step": 20}, "last", api=hub, **_opt(model))
     assert hub.files == before
     assert resume_state(CFG, api=hub) == STATE
     loaded, _, state = load_checkpoint(CFG, "last", api=hub, lm=base)
@@ -132,7 +136,7 @@ def test_interrupted_upload_resumes_from_previous(model, scaler, base, tiny_toke
 def test_refuses_public_repo(model, scaler):
     hub = FakeHub(private=False)
     with pytest.raises(RuntimeError, match="public"):
-        save_checkpoint(model, scaler, CFG, STATE, "last", api=hub)
+        save_checkpoint(model, scaler, CFG, STATE, "last", api=hub, **_opt(model))
     assert hub.commits == [] and hub.files == {}
 
 
@@ -144,7 +148,7 @@ def test_missing_run_returns_none(base):
 
 def test_folder_without_state_json_counts_as_absent(model, scaler, base):
     hub = FakeHub()
-    save_checkpoint(model, scaler, CFG, STATE, "last", api=hub)
+    save_checkpoint(model, scaler, CFG, STATE, "last", api=hub, **_opt(model))
     del hub.files["runs/run1/last/state.json"]
     assert load_checkpoint(CFG, "last", api=hub, lm=base) is None
     assert resume_state(CFG, api=hub) is None
@@ -176,3 +180,31 @@ def test_restore_training_state_brings_back_optimizer_and_rngs(model, scaler):
         assert s2[i]["exp_avg"].abs().sum() > 0
     assert sched2.last_epoch == sched.last_epoch and opt2.param_groups[0]["lr"] == opt.param_groups[0]["lr"]
     assert restore_training_state(CFG, api=FakeHub()) is False
+
+
+@pytest.mark.parametrize("missing", ["optimizer", "lr_scheduler"])
+def test_last_without_optimizer_or_scheduler_raises(model, scaler, missing):
+    hub = FakeHub()
+    kwargs = {**_opt(model), missing: None}
+    with pytest.raises(ValueError, match="optimizer and the lr_scheduler"):
+        save_checkpoint(model, scaler, CFG, STATE, "last", api=hub, **kwargs)
+    assert hub.commits == []
+
+
+def test_last_without_grad_scaler_leaves_no_stale_scaler_state(model, scaler):
+    hub = FakeHub()
+    scaler_a = torch.amp.GradScaler("cpu", enabled=True, init_scale=1234.0)
+    save_checkpoint(model, scaler, CFG, STATE, "last", api=hub, grad_scaler=scaler_a, **_opt(model))
+    save_checkpoint(model, scaler, CFG, {**STATE, "step": 20}, "last", api=hub, **_opt(model))  # CPU run: no scaler
+    assert sorted(hub.commits[0]) == sorted(hub.commits[1])  # same file set
+    fresh = torch.amp.GradScaler("cpu", enabled=True, init_scale=7.0)
+    assert restore_training_state(CFG, api=hub, grad_scaler=fresh)
+    assert fresh.state_dict()["scale"] == 7.0  # the marker was seen, not the old 1234.0
+
+
+def test_restore_names_the_missing_file(model, scaler):
+    hub = FakeHub()
+    save_checkpoint(model, scaler, CFG, STATE, "last", api=hub, **_opt(model))
+    del hub.files["runs/run1/last/lr_scheduler.pt"]
+    with pytest.raises(FileNotFoundError, match="lr_scheduler.pt"):
+        restore_training_state(CFG, api=hub, lr_scheduler=_opt(model)["lr_scheduler"])

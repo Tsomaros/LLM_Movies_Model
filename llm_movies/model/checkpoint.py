@@ -31,6 +31,7 @@ from llm_movies.model.data import TargetScaler
 from llm_movies.model.predictor import MoviePredictor, build_predictor
 
 Kind = Literal["best", "last"]
+NO_GRAD_SCALER = {"enabled": False}  # grad_scaler.pt when the run has no scaler; restore ignores it
 
 
 def _prefix(cfg: TrainConfig, kind: str) -> str:
@@ -73,9 +74,13 @@ def save_checkpoint(
     lr_scheduler=None,
 ) -> None:
     """Upload one checkpoint as one commit. `state` is `step, epoch, best_metric, bad_checks, metrics`. For "last" the
-    optimizer, grad scaler and lr scheduler (whichever the run has) and the current RNG states are saved too."""
+    optimizer, lr scheduler, grad scaler and the current RNG states are saved too. Commits only add files, so every
+    `last` must write the same file set or an older file would survive next to a newer adapter: optimizer and
+    lr_scheduler are required, and grad_scaler.pt is always written (a marker when there is no scaler, e.g. on CPU)."""
     if kind not in ("best", "last"):
         raise ValueError(f"kind must be 'best' or 'last', got {kind!r}")
+    if kind == "last" and (optimizer is None or lr_scheduler is None):
+        raise ValueError("a 'last' checkpoint needs the optimizer and the lr_scheduler (every last writes the same files)")
     api = api or hub_store.make_api()
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -84,9 +89,9 @@ def save_checkpoint(
         (root / "scaler.json").write_text(scaler.to_json(), encoding="utf-8")
         (root / "train_config.yaml").write_text(yaml.safe_dump(asdict(cfg), sort_keys=True), encoding="utf-8")
         if kind == "last":
-            for name, obj in (("optimizer", optimizer), ("grad_scaler", grad_scaler), ("lr_scheduler", lr_scheduler)):
-                if obj is not None:
-                    torch.save(obj.state_dict(), root / f"{name}.pt")
+            torch.save(optimizer.state_dict(), root / "optimizer.pt")
+            torch.save(lr_scheduler.state_dict(), root / "lr_scheduler.pt")
+            torch.save(grad_scaler.state_dict() if grad_scaler is not None else NO_GRAD_SCALER, root / "grad_scaler.pt")
             torch.save(rng_state(), root / "rng.pt")
         (root / "state.json").write_text(json.dumps(state), encoding="utf-8")
         names = sorted(f.relative_to(root).as_posix() for f in root.rglob("*") if f.is_file())
@@ -129,14 +134,20 @@ def resume_state(cfg: TrainConfig, api=None) -> dict | None:
 
 
 def restore_training_state(cfg: TrainConfig, api=None, *, optimizer=None, grad_scaler=None, lr_scheduler=None) -> bool:
-    """Load optimizer, grad scaler, lr scheduler (those given) and the RNG states from the Hub `last`. False if absent."""
+    """Load optimizer, grad scaler, lr scheduler (those given; a missing file raises) and the RNG states from the Hub `last`. False if absent."""
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp) / "ck"
         if not _fetch(cfg, "last", api, folder):
             return False
         for name, obj in (("optimizer", optimizer), ("grad_scaler", grad_scaler), ("lr_scheduler", lr_scheduler)):
-            if obj is not None:
-                obj.load_state_dict(torch.load(folder / f"{name}.pt", map_location="cpu", weights_only=True))
+            if obj is None:
+                continue
+            if not (folder / f"{name}.pt").is_file():
+                raise FileNotFoundError(f"{name}.pt is not in {_prefix(cfg, 'last')}; that checkpoint cannot restore the {name}")
+            loaded = torch.load(folder / f"{name}.pt", map_location="cpu", weights_only=True)
+            if name == "grad_scaler" and loaded == NO_GRAD_SCALER:
+                continue  # saved by a run without a scaler
+            obj.load_state_dict(loaded)
         set_rng_state(torch.load(folder / "rng.pt", map_location="cpu", weights_only=True))
     return True
 
