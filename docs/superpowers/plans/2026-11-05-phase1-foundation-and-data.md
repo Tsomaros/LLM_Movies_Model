@@ -305,5 +305,5 @@ Each notebook: clone the GitHub repo; `uv sync`; read `TMDB_READ_TOKEN`/`HF_TOKE
 - [x] **Step 1:** Write the notebooks and README (run order, CPU runtime, how to resume).
 - [x] **Step 2:** Run 01 for chunk 0 with `--limit 500`, then 02 and 03 on that sample → a tiny HF dataset and report exist. Fix anything that breaks.
 - [x] **Step 3:** Commit `feat(notebooks): Colab launchers`.
-- [ ] **Step 4:** Full run (Dimitris, over several sessions): all chunks of 01, then 02, then 03. Verification: manifest lists every chunk; `reports/data_summary.md` committed.
+- [x] **Step 4:** Full run (Dimitris, over several sessions): all chunks of 01, then 02, then 03. Verification: manifest lists every chunk; `reports/data_summary.md` committed.
 - [ ] **Step 5:** Decision with Dimitris from the report: `min_votes` → update `config/data.yaml`, re-run export. Commit `data: first full dataset and summary`. Phase 1 done; write the Phase 2 plan.

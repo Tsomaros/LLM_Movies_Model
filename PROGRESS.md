@@ -1,7 +1,7 @@
 # Progress
 
 ## Now
-- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-14 done; Task 15's notebooks done, its Colab runs not yet.
+- Phase 1 plan: `docs/superpowers/plans/2026-11-05-phase1-foundation-and-data.md`. Tasks 1-14 done; Task 15 Steps 1-4 done, Step 5 (`min_votes`) waits on the owner.
 - 2026-11-07: two dry-run fixes done. TMDB pull runs `--workers` threads (default 8) under the shared 40/s cap, writing in id
   order on the main thread (expected about 10 h instead of 70 h; the real speed is unmeasured until Colab). `release_type`: the
   country is chosen among those with a cinema entry (US first), only TMDB type 4 counts as streaming-only and only from 2007;
@@ -11,10 +11,18 @@
 - 2026-11-08: the first Colab run stopped on a TMDB token with a trailing line break, and the `requests` error printed the whole
   token. Tokens are now stripped, and a token with inner whitespace or odd characters is refused without being shown (TMDB in
   `TmdbClient`, Hugging Face in `hub_store.hf_token`). The owner was told to replace the exposed TMDB token and clear the Colab output.
-- Still open: Wikidata films take about 30 s per 500 ids, about 20 h; the owner decides whether to pull Wikidata only for films
-  that can matter.
 - 2026-11-08: Task 15 Step 2 done: the 500-film sample went through notebooks 01, 02 and 03 in Colab (export pushed, report written; 01 took under a minute). It held 499 train and 1 calibration film, so real locked films are still unexercised until the full run.
-- Next: 5 real chunks to measure speed, then Task 15 Step 4 (full run), Step 5 (`min_votes` decision).
+- 2026-11-10: Task 15 Step 4 done: the owner ran the full pull (5 chunks took 16 min, about 26 films/s), full Wikidata (no
+  pruning) and notebook 03 in Colab; report copied to `reports/data_summary.md`. 1,081,349 films: train 565,901, calibration
+  52,781, validation 95,216, test 367,451, holdout 0 (`base_model_cutoff` is unset, so every film from 2019 on is test until
+  Phase 2 picks the base model and sets it, which needs a rebuild). Open-split dataset: 34,354 films (17,312 with revenue,
+  28,907 with score at min_votes 50). The Hub manifest was not checked from here; the owner reported the run complete.
+- Next: Task 15 Step 5, the `min_votes` decision (the report's table: 10 -> 85,861 score films, 20 -> 53,217, 50 -> 28,907,
+  100 -> 18,509). Then Phase 1 is done and the Phase 2 plan is written.
+- Open for Phase 2: the outcome-word audit finds about 170 open films whose tagline or synopsis mentions awards or box office
+  (Oscar 56, award-winning 50, Academy Award 24, gross 14, blockbuster 12, box office 8, Golden Globe 4, record-breaking 4,
+  smash hit 2; overlaps possible), plus 223 dollar figures (mostly plot money in the samples). Decide whether the prompt masks
+  them or those films are dropped.
 - Execution: subagent-driven, alternating between Claude Code (Windows) and the claude.ai cloud session.
 - Remote `origin` is https://github.com/Tsomaros/LLM_Movies_Model (public). `main` pushed at 55e5fc5; its CI run passed
   (https://github.com/Tsomaros/LLM_Movies_Model/actions/runs/42055792680).
