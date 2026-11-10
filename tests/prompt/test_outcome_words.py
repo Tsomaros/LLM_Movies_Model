@@ -80,3 +80,10 @@ def test_phrase_straddling_the_cut_is_still_masked():
     out = render(film(synopsis=synopsis)).splitlines()[-1]
     assert out.endswith(f" w118 {MASK}...")
     assert "box" not in out
+
+
+def test_overlapping_phrases_leave_no_fragment():
+    assert mask_outcomes("An Academy Award-winning drama.") == f"An {MASK} drama."
+    assert mask_outcomes("An Academy Award winning drama.") == f"An {MASK} drama."
+    assert mask_outcomes("An Oscar-winning drama.") == f"An {MASK} drama."
+    assert mask_outcomes("A Golden Globe winning drama.") == f"A {MASK} drama."
