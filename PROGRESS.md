@@ -1,6 +1,21 @@
 # Progress
 
 ## Now
+- 2026-11-10: **Phase 2 Task 8 done** (training loop) in `llm_movies/model/train.py`: `train(cfg, data_dir, *, api, lm, tokenizer,
+  device, out_dir) -> summary` (`best_metric`, `best_step`, `stopped_reason` patience/epochs/nan, best validation metrics) and the
+  CLI `python -m llm_movies.model.train --config configs/train/<name>.yaml [--data DIR]`, which downloads only films.parquet
+  (`hub_store.download_file`). AdamW with LoRA/head groups, 3% warmup then cosine, grad accumulation (loss divided by the real
+  micro-batch count), fp16 autocast + GradScaler on CUDA. Validation metric = `pinball_loss` over the whole validation frame ÷ 2
+  (scaled units), every round(steps_per_epoch × eval_every) steps; `best` on improvement, `last` every `save_every_steps` and after
+  each check, using the Task 7 API as recorded (plus an optional `device=` keyword added to `load_checkpoint` and `build_predictor`,
+  so a CPU device stays fp32). Resume maps `state["step"]` to epoch = step // steps_per_epoch and skips the epoch's done steps; the
+  test shows an interrupted + resumed run equals an uninterrupted one (weights and AdamW state, atol 1e-5). Non-finite loss skips
+  the step; 10 in a row stop with "nan". The head now runs with autocast disabled (fp32 on CUDA, per the Global Constraints).
+  W&B (only with `WANDB_API_KEY`) resumes by `id=run_name` and gets `train_loss`/`lr` per step; `metrics.jsonl` (validation lines
+  only) goes to `outputs/<run_name>/` (git-ignored). `tests/hub_fakes.py` holds the shared fake Hub. 1051 tests pass, ruff clean;
+  code-reviewer (opus, spec ✅, approved; five pre-Kaggle fixes came from its minors in one round) and test-auditor run on Windows.
+  Untested here: the CUDA/GradScaler path and real Hub calls; the first T4 run should be a short smoke run that checks non-zero LoRA
+  gradients, a `last` upload and a resume. Reusing a `run_name` merges W&B runs. Next: Task 9.
 - 2026-11-10: **Phase 2 Task 7 done** (Hub checkpoints and resume) in `llm_movies/model/checkpoint.py`. API for Task 8:
   `save_checkpoint(model, scaler, cfg, state, kind, api=None, *, optimizer=None, grad_scaler=None, lr_scheduler=None)`,
   `load_checkpoint(cfg, kind, api=None, lm=None) -> (model, scaler, state) | None`, `resume_state(cfg, api=None)`,

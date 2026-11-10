@@ -105,12 +105,43 @@ def test_rejects_left_padding_free_inputs_shape(predictor):
 
 def test_head_stays_fp32_under_autocast(predictor, tiny_tokenizer, golden_prompts):
     enc = _enc(tiny_tokenizer, golden_prompts[:2])
-    with torch.autocast("cpu", dtype=torch.bfloat16):
-        out = predictor(enc["input_ids"], enc["attention_mask"])
+    seen = []  # (input dtype, output dtype) of each head Linear: pins the internals, not just the final dtype
+    hooks = [m.register_forward_hook(lambda mod, i, o: seen.append((i[0].dtype, o.dtype)))
+             for m in predictor.head.net if isinstance(m, torch.nn.Linear)]
+    try:
+        with torch.autocast("cpu", dtype=torch.bfloat16):
+            out = predictor(enc["input_ids"], enc["attention_mask"])
+    finally:
+        for h in hooks:
+            h.remove()
     assert out.dtype == torch.float32
+    assert len(seen) == 2
+    assert all(d == (torch.float32, torch.float32) for d in seen), seen
 
 
-def test_build_predictor_on_cpu_keeps_fp32_and_no_checkpointing(tiny_lm):
+def test_build_predictor_on_cpu_keeps_fp32_and_no_checkpointing(tiny_lm, monkeypatch):
+    # a CUDA-less request must win over torch.cuda.is_available(): the explicit device is what counts
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
     model = build_predictor(CFG, lm=tiny_lm, device="cpu")
     assert all(p.dtype == torch.float32 for p in model.parameters())
     assert not tiny_lm.is_gradient_checkpointing
+    assert all(p.device.type == "cpu" for p in model.parameters())
+
+
+def test_build_predictor_loads_fp32_base_for_cpu_device(monkeypatch):
+    import llm_movies.model.predictor as mod
+
+    class Stop(Exception):
+        pass
+
+    got = {}
+
+    def fake_from_pretrained(name, **kw):
+        got.update(kw)
+        raise Stop
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(mod.AutoModelForCausalLM, "from_pretrained", fake_from_pretrained)
+    with pytest.raises(Stop):
+        build_predictor(CFG, device="cpu")
+    assert got["dtype"] == torch.float32
