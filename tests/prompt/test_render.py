@@ -1,9 +1,10 @@
 import os
+import re
 from pathlib import Path
 
 import pytest
 
-from llm_movies.prompt.render import OPTIONAL_GROUPS, money, render
+from llm_movies.prompt.render import GENERIC_FRANCHISE, HIDEABLE, OPTIONAL_GROUPS, RANDOM_HIDE, money, render
 from llm_movies.prompt.resolve import ResolvedFilm, film_row, film_to_form, form_as_of, resolve
 
 GOLDEN = Path(__file__).parent.parent / "golden" / "prompts"
@@ -314,3 +315,83 @@ def test_list_drops_blank_entries():
     assert lines["Genres"] == "not given"
     assert lines["Themes"] == "Drama"  # exact: a leftover separator such as "Drama, " must fail
     assert lines["Runtime"].endswith("Countries: not given")  # countries sit on the Runtime line; ", , " must fail
+
+
+# ---- hideable extras and anonymized names ----
+
+
+def test_hide_release_type_and_themes():
+    assert HIDEABLE == OPTIONAL_GROUPS + ("source_strength", "release_type", "themes")
+    text = render(film(), hidden=frozenset({"release_type", "themes"}))
+    assert "Release type: not given" in text and "Themes: not given" in text
+    assert "wide" not in text and "heist" not in text
+    assert len(text.splitlines()) == len(render(film()).splitlines())
+
+
+def test_source_strength_hideable_alone():
+    text = render(film(), hidden=frozenset({"source_strength"}))
+    assert "Source: novel" in text and "Source strength: not given" in text
+
+
+def test_unknown_group_still_raises():
+    with pytest.raises(ValueError, match="HIDEABLE"):
+        render(film(), hidden=frozenset({"nonsense"}))
+    with pytest.raises(ValueError):
+        render(film(), hidden=frozenset({"director"}))
+
+
+def test_random_hide_excludes_release_type_and_themes():
+    assert RANDOM_HIDE == OPTIONAL_GROUPS + ("source_strength",)
+    assert "release_type" not in RANDOM_HIDE and "themes" not in RANDOM_HIDE
+    assert set(RANDOM_HIDE) <= set(HIDEABLE)
+
+
+def test_anonymize_removes_every_name(mini_con, mini_ctx):
+    form = film_to_form(film_row(mini_con, 301528))
+    r = resolve(form, form_as_of(form), mini_ctx)
+    text = render(r, anonymize=True)
+    names = [p["name"] for p in [r.director, r.composer, *r.writers, *r.cast, *r.producers, *r.companies] if p and p["name"]]
+    names.append(r.distributor["name"])
+    names.append(r.franchise)
+    names = [n for n in names if n]
+    assert names
+    lines = dict(line.split(": ", 1) for line in text.splitlines())
+    non_free = "\n".join(f"{k}: {v}" for k, v in lines.items() if k not in ("Tagline", "Synopsis"))
+    for name in names:
+        assert name not in non_free, name
+    assert lines["Director"].startswith("Person 1 [")
+    assert lines["Distributor"].startswith("Distributor [")
+    assert lines["Franchise"] == f"{GENERIC_FRANCHISE} (installment {r.installment})"
+
+
+def test_anonymize_same_person_same_number():
+    text = render(film(writers=[person("Dee Rector"), person("Wri Ter")], cast=[person("Wri Ter"), person("New Face")],
+                       companies=[company("Studio One"), company("Studio One"), company("Studio Two")]), anonymize=True)
+    lines = dict(line.split(": ", 1) for line in text.splitlines())
+    assert lines["Director"].startswith("Person 1 [")
+    assert lines["Writers"].startswith("Person 1 [") and "; Person 2 [" in lines["Writers"]
+    assert lines["Cast"].startswith("Person 2 [") and "; Person 3 [" in lines["Cast"]
+    assert lines["Producers"].startswith("Person 4 [") and lines["Composer"].startswith("Person 5 [")
+    assert lines["Companies"].startswith("Company 1 [") and "; Company 1 [" in lines["Companies"] and "; Company 2 [" in lines["Companies"]
+
+
+def test_anonymize_nameless_people_get_fresh_numbers():
+    text = render(film(cast=[person(""), person(" ")]), anonymize=True)
+    cast = dict(line.split(": ", 1) for line in text.splitlines())["Cast"]
+    assert cast.startswith("Person ") and "Unnamed" not in cast
+    first, second = (c.split(" [")[0] for c in cast.split("; "))
+    assert first != second
+
+
+def test_anonymize_keeps_records(mini_con, mini_ctx):
+    form = film_to_form(film_row(mini_con, 301528))
+    r = resolve(form, form_as_of(form), mini_ctx)
+    plain, anon = render(r).splitlines(), render(r, anonymize=True).splitlines()
+    assert len(plain) == len(anon)
+    brackets = lambda line: re.findall(r"\[[^\]]*\]", line)
+    for a, b in zip(plain, anon):
+        if a.split(": ", 1)[0] in ("Director", "Writers", "Cast", "Producers", "Composer", "Companies", "Distributor"):
+            assert brackets(a) == brackets(b), a
+        elif a.split(": ", 1)[0] != "Franchise":
+            assert a == b, a
+    assert "age 54" in render(film(), anonymize=True) and "Budget: $50M" in render(film(), anonymize=True)
