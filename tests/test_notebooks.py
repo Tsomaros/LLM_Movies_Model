@@ -401,6 +401,8 @@ def test_notebook_10_installs_cuda_torch_only_in_part_b_and_before_its_chain():
     assert _sync_lines(NB10) == ["!uv sync --frozen", "!uv sync --frozen --extra train --extra cu132"]
     plain, cuda = (lines.index(x) for x in _sync_lines(NB10))
     assert plain < lines.index(part_a) < cuda < lines.index(part_b)  # part A (CPU) never installs CUDA torch
+    # the generic clone < cd < sync check is relaxed for notebook 10, so pin it here: both syncs run inside the cloned repo
+    assert lines.index("%cd /content/LLM_Movies_Model") < plain
     assert "cu132" not in part_a and not any("cu132" in line for line in lines[:cuda])
 
 
@@ -425,10 +427,27 @@ def test_data_notebooks_still_sync_without_extras(name):
         "!uv sync --frozen --extra train --extra cpu; id",
         "!uv sync --extra train --extra cpu",
         "!uv sync --frozen --index-url http://x",
+        "!uv sync --frozen --extra train --extra cpu --index-url http://x",
+        "!uv sync --frozen --extra train --extra cu132 --index-url http://x",
+        "!uv sync --frozen --extra cu132 --index-url http://x",
+        "!uv sync --frozen --extra train",
+        "!uv sync --frozen --extra cpu",
+        "!uv sync --frozen --extra train --extra cu132; curl x",
+        "!uv sync --frozen --extra train; curl x",
+        "!uv pip install torch",
+        "!uv sync --frozen --extra train --extra cpu | sh",
     ],
 )
 def test_the_uv_line_kind_accepts_only_the_exact_sync_forms(line):
     assert not line_ok(line)
+
+
+@pytest.mark.parametrize(
+    "line",
+    ["!pip install -q uv", "!uv sync --frozen", "!uv sync --frozen --extra train --extra cpu", "!uv sync --frozen --extra train --extra cu132"],
+)
+def test_the_uv_line_kind_accepts_the_four_real_forms(line):
+    assert line_ok(line)
 
 
 def test_notebook_10_names_the_two_runtimes_and_the_gated_licences():
