@@ -142,6 +142,12 @@ needs **write access to the raw repo**. If a licence is not accepted, notebook 1
 message (never the token) and goes on to the next; accept the licence and rerun part B. In notebook 12 the gated models come after the
 open ones, so a refused licence stops the chain only after the open models are timed.
 
+The `db/movies.db` snapshot is frozen and exists for the Task 10 probes only. Run part A only after the full pull is complete (it builds
+from whatever shards exist). `ensure` never replaces an existing snapshot and `fetch` does not check the build config, so after
+`base_model_cutoff` or the split years change its split labels are stale: later phases must rebuild (notebook 03). To refresh the snapshot,
+delete `db/movies.db` from the raw repo first. A part B rerun with different settings (for example a smoke run with `--per-quarter 2`)
+replaces that model's entry and CSVs in `model_choice/`: after a smoke run, rerun with the defaults (the Hub history keeps old versions).
+
 The raw repo gains two folders:
 
 ```
@@ -159,6 +165,9 @@ model_choice/                 <model>_director.csv, <model>_revenue.csv, summary
 | 10 part B, all six | about 1 to 1.5 hours if all load | six times the per-model estimate; a rerun resumes after the last uploaded model |
 | 12, per model | tens of minutes | 6 forward passes (1 warm-up and 5 timed) of 13 x 768 = 9,984 tokens; a forward pass costs about 2 x parameters x tokens FLOPs, about 20 TFLOP for a 1B model; a free Colab CPU with 2 cores may sustain on the order of 50 to 100 GFLOP/s, so minutes per pass |
 | 12, all six | several hours; the 5.1B Gemma 4 E2B alone may take much longer than the rest | the sum of the per-model estimates |
+
+By the arithmetic above, a batch-13 x 768 forward pass is likely minutes per pass on a 2-vCPU Colab runtime even for the 0.6B model
+(an estimate), and the 5.1B Gemma 4 E2B may not fit in 12 GB RAM (also unmeasured).
 
 Memory on the CPU runtime (about 12 GB) is a risk for notebook 12: a model is loaded in fp32 and then copied by the int8 quantizer. The 1.7B
 models need about 7 GB for the fp32 weights alone, and Gemma 4 E2B more than that, so it may run out of memory. That is a reason it is last.

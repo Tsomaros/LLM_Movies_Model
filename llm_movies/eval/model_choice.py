@@ -9,6 +9,8 @@ revenue probe on `--revenue-n` validation films (the same films for every model:
 EACH model (one commit), so a lost session loses at most one model. A model already "ok" in the repo's summary.json (with the
 same settings) is skipped, so a rerun resumes. A model that fails (a licence not accepted, out of memory) is recorded as
 failed with its error (the token is never written) and the run goes on. Without a GPU the run stops unless --device cpu.
+A rerun with different settings (for example a smoke run with --per-quarter 2) replaces that model's entry and CSVs in the repo:
+after a smoke run, rerun with the defaults (the Hub history keeps the old versions).
 
 CANDIDATES is the one list of models; the notebooks and docs follow it. Gated models come after the open ones, and the
 conditional one (checked only if its CPU time allows) comes last.

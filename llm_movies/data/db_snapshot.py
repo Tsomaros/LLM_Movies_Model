@@ -6,6 +6,11 @@ python -m llm_movies.data.db_snapshot fetch --out PATH [--repo REPO]
 `ensure`: when `db/movies.db` is already in the repo, say so and do nothing (no shard download, no build). Otherwise download
 the three shard folders (tmdb, wd_films, wd_people; not the id export or the reports), build the database with `build_db`, and
 upload it as `db/movies.db` in one commit. `fetch` downloads only that one file. The token is HF_TOKEN (write access).
+
+The snapshot is FROZEN and exists for the Task 10 probes only: `ensure` never replaces `db/movies.db`, and `fetch` does not check
+the build config. Run `ensure` only after the full TMDB and Wikidata pull is complete (it builds from whatever shards exist). After
+`base_model_cutoff` or the split years change, the snapshot's split labels are stale: later phases must rebuild (notebook 03). To
+refresh the snapshot, delete `db/movies.db` from the raw repo first.
 """
 
 from __future__ import annotations
