@@ -1,6 +1,15 @@
 # Progress
 
 ## Now
+- 2026-11-11: **Checked whether Qwen3's low director recall is a probe artifact: it is real.**
+  - The Colab CSVs weren't downloaded, because the Hugging Face token cached on Windows is rejected (401). Qwen3-0.6B-Base,
+    which is public, was rerun on CPU through `make_generator` instead.
+  - Its answers are clean text, with no leading newlines.
+  - Batch 1 and batch 8 give the same answers in fp32 and in fp16.
+  - The name match is correct, including TMDB's "Bong Joon Ho" against "Joon-ho".
+  - The model got only 3 of 16 famous 2019-20 films right; the rest were confident wrong names.
+  - No code change. The decision and cutoff stand. Details are in `docs/model_choice.md`.
+  - **Open:** refresh the local HF token if the CSVs or a Llama comparison are wanted.
 - 2026-11-11: **Phase 2 Task 10 done.** The owner reran notebook 03 (no re-pull) with `base_model_cutoff` 2025-04-29.
   - `reports/data_summary.md` now shows test 281,690, holdout 57,017 and later 28,744. These add up to the old test count
     of 367,451.

@@ -103,6 +103,36 @@ What the numbers mean:
   could leak into the test set. That favours Qwen.
 - **One family, two sizes.** Among the measured models, only Qwen3 (0.6B and 1.7B) gives one family with two sizes.
 
+### Check: is Qwen3's low director recall a probe artifact? (2026-11-11) No, it is real
+
+**Suspicion.** Qwen3's director recall (0.006 and 0.022) looked implausibly low next to Llama-3.2-1B's 0.190, while its
+revenue answers looked normal.
+
+**How it was checked.**
+- The Colab answer CSVs could not be downloaded. The Hugging Face token cached on the Windows PC was rejected (401).
+- Instead, `Qwen/Qwen3-0.6B-Base`, which is public, was run on CPU through the same `make_generator` and
+  `DIRECTOR_PROMPT`, on 16 well-known 2019-20 films.
+
+**Findings.**
+- **The answers are clean and use their tokens.** Each one starts with a space and a name or phrase, with no leading
+  newlines. Examples: " Bong Joon-ho, a South Korean filmmaker known", " Christopher Nolan and stars Tom Hardy, ...".
+- **Padding and precision change nothing.** Batch 1 and batch 8 (left padded, pad = eos = `<|endoftext|>`) gave
+  identical answers, in fp32 and in fp16 (the T4 dtype).
+- **The name match works.** Fed these exact answers, `director_probe` marks Bong Joon Ho (TMDB spelling, against
+  "Joon-ho"), Martin Scorsese and Christopher Nolan as known. Wrong answers are marked not known: "Aaron Sorkin" for
+  Joker, "Ingmar Bergman" for Midsommar.
+- **The model really doesn't know.** Even on these famous films it named the right director only 3 times out of 16. The
+  rest were confident wrong names ("David Fincher" for Knives Out, "Ridley Scott" for 1917) or evasions ("the same
+  director who directed the 2018 film").
+- **The probe sample is mostly lesser-known films.** It holds 150 films per quarter with at least 100 votes, so near-zero
+  recall fits.
+- **The revenue figure fits too.** Its 9.7% within 2x is roughly what plausible-sized guesses reach by chance, so it is
+  no sign of real knowledge.
+
+**Result.** No probe change, no rerun, and the decision and cutoff stand.
+- Not done: inspecting the Colab CSVs themselves and running Llama on the same 16 films (gated, so it needs a valid
+  token).
+
 ## Step 4: decision (Dimitris, 2026-11-11)
 
 - **Family and sizes:** Qwen3, `Qwen/Qwen3-0.6B-Base` (E1 small, the base config) and `Qwen/Qwen3-1.7B-Base` (E1 large).
