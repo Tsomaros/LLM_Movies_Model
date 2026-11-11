@@ -1,6 +1,23 @@
 # Progress
 
 ## Now
+- 2026-11-11: **Phase 2 Task 10 prepared** (Step 1 done; Steps 2–5 wait for Colab runs and the decision). `docs/model_choice.md`
+  holds the official model-card facts: Qwen3-0.6B-Base and 1.7B-Base (Apache 2.0, ungated, cutoff not stated; the plan's ids
+  without `-Base` are the post-trained models), Llama-3.2-1B (gated, cutoff December 2023, "Built with Llama" and a "Llama..." name
+  for a published fine-tune), gemma-3-1b-pt (gated, cutoff August 2024 per Google's model card, not the HF card; Prohibited Use
+  Policy passes to Space users), SmolLM2-1.7B (Apache 2.0, cutoff not stated), and Gemma 4 E2B as a conditional last candidate
+  (Apache 2.0 per its licence page, cutoff January 2025, 5.1B with embeddings; base vs instruct and gating unconfirmed).
+  To run: `notebooks/10_model_choice.ipynb` part A on a CPU runtime once (`db_snapshot ensure`: builds movies.db from the raw shards
+  and uploads `db/movies.db` to the raw repo unless present; run it only after the pull is complete; the snapshot is frozen and
+  for Task 10 only), part B on a T4 (`db_snapshot fetch` then `model_choice run`: director probe 150 films per quarter 2019Q1–2026Q2
+  with ≥100 votes, revenue probe 300 validation films, per candidate in `model_choice.CANDIDATES`; CSVs and `summary.json`/`.md`
+  go to `model_choice/` in the raw repo after each model; rerun resumes, a gated model without an accepted licence is recorded as
+  failed and the rest go on), then `notebooks/12_speed.ipynb` on a CPU runtime (one `eval.speed` call per candidate, max_len 768,
+  batch 13). Before part B, accept the Llama 3.2 and Gemma 3 licences on huggingface.co with the HF_TOKEN account. Run times in
+  `notebooks/README.md` are estimates only; by its own arithmetic a batch-13 pass may take minutes on Colab's 2 vCPUs even for
+  0.6B (the plan's target is ≤ 20 s), and Gemma 4 E2B may not fit in 12 GB. `tests/test_notebooks.py` now covers notebooks 10 and
+  12 (HF_TOKEN only, one chain per runtime part). 1157 tests pass, ruff clean; code-reviewer (opus, approved; it caught the missed
+  Gemma 3 cutoff) and test-auditor run on Windows. Next: run notebook 10 (A, then B) and 12, fill the measurements table, decide.
 - 2026-11-10: **Phase 2 Task 9 done** (probes, token lengths, CPU speed) in `llm_movies/eval/probe.py`, `tokens.py`, `speed.py`.
   CLIs for Task 10: `python -m llm_movies.eval.probe revenue|director --model ID --db PATH --n N --out CSV [--min-votes 100]`,
   `python -m llm_movies.eval.tokens --tokenizer ID [--parquet DIR]` (the `--parquet` default `data/export` is a guess; pass it),
