@@ -30,7 +30,7 @@ ALLOWED = [
         ),
     ),
     ("repo root", re.compile(r"^%cd /content/LLM_Movies_Model$")),
-    ("uv", re.compile(r"^!(pip install -q uv|uv sync --frozen)$")),
+    ("uv", re.compile(r"^!(pip install -q uv|uv sync --frozen( --extra train --extra (cpu|cu132))?)$")),
     ("secret", re.compile(r"^(import os|from google\.colab import userdata|os\.environ\[\"(TMDB_READ_TOKEN|HF_TOKEN)\"\] = userdata\.get\(\"\2\"\))$")),
     ("uv frozen", re.compile(r"^os\.environ\[\"UV_FROZEN\"\] = \"1\"$")),
     ("form", re.compile(r"^(LIMIT = \"\d*\"|MAX_CHUNKS = \"\d*\"|PUSH = False|PARTIAL = False)\s+#@param .*$")),
@@ -132,8 +132,11 @@ def test_each_notebook_clones_syncs_reads_its_secrets_then_runs_clis(path):
         assert not [line for line in lines if "TMDB_READ_TOKEN" in line], f"{path.name} must not read the TMDB token"
     positions = [lines.index(s) for s in secrets]
     first_cli = next(i for i, line in enumerate(lines) if line.startswith("!uv run"))
-    clone, cd, sync = lines.index(next(x for x in lines if x.startswith("!test -d"))), lines.index("%cd /content/LLM_Movies_Model"), lines.index("!uv sync --frozen")
-    assert clone < cd < sync < min(positions) and max(positions) < first_cli
+    clone, cd = lines.index(next(x for x in lines if x.startswith("!test -d"))), lines.index("%cd /content/LLM_Movies_Model")
+    sync = min(i for i, line in enumerate(lines) if line.startswith("!uv sync"))
+    assert clone < cd < min(positions) and max(positions) < first_cli and sync < first_cli
+    if path.name != "10_model_choice.ipynb":  # notebook 10 syncs inside its parts: the runtimes need different torch builds
+        assert cd < sync < min(positions)
 
 
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.name)
@@ -386,6 +389,46 @@ def test_notebook_10_part_a_ensures_the_database_and_part_b_fetches_it_then_prob
     assert not any(flag in part_b for flag in ("--models", "--per-quarter", "--quarters", "--revenue-n", "--min-votes", "--seed"))
     lines = code_lines(load(NB10))
     assert lines.index(part_a) < lines.index(part_b)
+
+
+def _sync_lines(path: Path) -> list[str]:
+    return [line for line in code_lines(load(path)) if line.startswith("!uv sync")]
+
+
+def test_notebook_10_installs_cuda_torch_only_in_part_b_and_before_its_chain():
+    lines = code_lines(load(NB10))
+    part_a, part_b = cli_lines(load(NB10))
+    assert _sync_lines(NB10) == ["!uv sync --frozen", "!uv sync --frozen --extra train --extra cu132"]
+    plain, cuda = (lines.index(x) for x in _sync_lines(NB10))
+    assert plain < lines.index(part_a) < cuda < lines.index(part_b)  # part A (CPU) never installs CUDA torch
+    assert "cu132" not in part_a and not any("cu132" in line for line in lines[:cuda])
+
+
+def test_notebook_12_syncs_cpu_torch_and_the_train_extra_before_timing():
+    lines = code_lines(load(NB12))
+    assert _sync_lines(NB12) == ["!uv sync --frozen --extra train --extra cpu"]
+    assert lines.index(_sync_lines(NB12)[0]) < lines.index(cli_lines(load(NB12))[0])
+
+
+@pytest.mark.parametrize("name", ["01_pull_tmdb.ipynb", "02_pull_wikidata.ipynb", "03_build_and_export.ipynb"])
+def test_data_notebooks_still_sync_without_extras(name):
+    assert _sync_lines(NOTEBOOKS[EXPECTED.index(name)]) == ["!uv sync --frozen"]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "!uv sync --frozen --extra cu132 --extra cpu",
+        "!uv sync --frozen --extra train --extra cu128",
+        "!uv sync --frozen --extra train --extra cpu --extra cu132",
+        "!uv sync --frozen --extra train --extra cpu && rm -rf /content",
+        "!uv sync --frozen --extra train --extra cpu; id",
+        "!uv sync --extra train --extra cpu",
+        "!uv sync --frozen --index-url http://x",
+    ],
+)
+def test_the_uv_line_kind_accepts_only_the_exact_sync_forms(line):
+    assert not line_ok(line)
 
 
 def test_notebook_10_names_the_two_runtimes_and_the_gated_licences():

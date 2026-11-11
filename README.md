@@ -7,7 +7,10 @@ portfolio project. See `CLAUDE.md` and `docs/superpowers/specs/` for the design.
 ## Development
 
 ```
-uv sync
+uv sync --extra train --extra cpu
 uv run pytest
 uv run ruff check .
 ```
+
+PyTorch comes from one of two mutually exclusive extras: `cpu` (tests, CI, CPU runtimes) or `cu132` (a Colab/Kaggle T4). Add
+`--extra train` for transformers, peft and accelerate. `uv run` keeps the extras installed by the last `uv sync`.

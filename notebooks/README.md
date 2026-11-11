@@ -121,12 +121,28 @@ Two more notebooks pick the base model. They also hold no logic (`llm_movies.dat
 | `google/gemma-3-1b-pt` | gated: licence step below |
 | `google/gemma-4-E2B` | **conditional** (Apache 2.0): kept only if its CPU time allows. About 5.1B parameters with embeddings, so expect the slowest CPU time. It may be multimodal and fail to load as a plain causal LM; both notebooks put it last, so a failure costs nothing earlier |
 
+## What each runtime installs
+
+The first three notebooks run `uv sync --frozen` (no PyTorch). Notebooks 10 and 12 need `transformers` (the `train` extra) and a PyTorch
+build, and the two come as mutually exclusive extras in `pyproject.toml`:
+
+| where | sync command | PyTorch |
+| --- | --- | --- |
+| 10 part A (CPU runtime) | `uv sync --frozen` | none |
+| 10 part B (T4 GPU runtime) | `uv sync --frozen --extra train --extra cu132` | CUDA 13.2 build, `torch 2.15.0+cu132` (Turing sm_75 is in its supported list) |
+| 12 (CPU runtime) | `uv sync --frozen --extra train --extra cpu` | CPU build |
+| tests, CI, this PC | `uv sync --extra train --extra cpu` | CPU build |
+
+The GPU sync downloads the CUDA wheels (roughly 3 to 5 GB with the cuDNN, cuBLAS and NCCL libraries; an estimate, not measured) and takes
+a few minutes on Colab. Part B has its own sync cell, so a T4 session runs Setup, Secrets, then part B only; a CPU session running part A
+never installs CUDA. `uv run` keeps the extras installed by the last `uv sync`, so the commands do not need `--extra` themselves.
+
 ## Run order
 
 1. **`10_model_choice.ipynb`, part A, on a CPU runtime, once.** Rebuilds `movies.db` from the raw shards and uploads it to the raw repo
    as `db/movies.db`. If the repo already holds it, the command says so and does nothing (no download, no build).
 2. **`10_model_choice.ipynb`, part B, on a T4 GPU runtime.** Change the runtime, run the Setup and Secrets cells again (the new machine
-   is empty), then the part B cell. It downloads `db/movies.db` only, then probes each model: director recall (150 films per release
+   is empty), then the part B sync cell and the part B probe cell. It downloads `db/movies.db` only, then probes each model: director recall (150 films per release
    quarter from 2019Q1 to 2026Q2, at least 100 votes) and revenue memorization (300 validation films), the same films for every model.
    After **each** model it uploads that model's two CSVs and `summary.json` / `summary.md` to `model_choice/` in the raw repo. **To resume,
    rerun part B**: a model already `ok` is skipped; a failed one is tried again. Without a GPU it stops with a message.

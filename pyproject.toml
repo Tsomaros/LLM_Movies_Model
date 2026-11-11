@@ -21,21 +21,35 @@ train = [
     "accelerate>=1.15.0",
     "wandb>=0.31.0",
 ]
+# exactly one of these, next to `train`: cpu for tests, CI and CPU runtimes; cu132 for a Colab/Kaggle T4
+# (PyTorch 2.15 stable CUDA 13.2 wheels keep Turing sm_75; 2.15.0 has no cu126/cu128/cu130 wheels)
+cpu = ["torch>=2.15.0"]
+cu132 = ["torch>=2.15.0"]
 
 [dependency-groups]
 dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.3",
     "tokenizers>=0.23.3",
-    "torch>=2.15.0",
 ]
 
+[tool.uv]
+conflicts = [[{ extra = "cpu" }, { extra = "cu132" }]]
+
 [tool.uv.sources]
-torch = { index = "pytorch-cpu" }
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu132", extra = "cu132" },
+]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu132"
+url = "https://download.pytorch.org/whl/cu132"
 explicit = true
 
 [build-system]
