@@ -1,6 +1,21 @@
 # Progress
 
 ## Now
+- 2026-11-11: **Phase 2 Task 10 Steps 2-3 done: the Colab probe and speed results are in `docs/model_choice.md`.**
+  Step 4, the decision, is open; Step 5 waits for it.
+  - Findings:
+    - The gemma-3-1b-pt probe run is invalid. It scored 0 on everything, most likely from fp16 overflow in
+      `make_generator`; the CSVs were not inspected.
+    - The Qwen empirical cutoffs are noise. 2019-20 recall is only 0.006 and 0.022, and 1.7B's computed date, 2026-06,
+      is after Qwen3's release on 2025-04-29.
+    - No model meets the 20 s CPU rule. Qwen3-0.6B takes 100 s for batch 13 on 1 thread at 768 tokens.
+    - Gemma 4 E2B gave no speed result, probably out of memory.
+    - Only Qwen3 offers one family with two measured sizes.
+  - Open questions for Dimitris:
+    - the family and its two sizes;
+    - the Qwen cutoff source (release date or another rule);
+    - the CPU rule, which also feeds the E1 rule in Task 12;
+    - whether to rerun Gemma 3 in fp32.
 - 2026-11-11: **Hotfix 2: notebook 12 was killed on Colab's CPU runtime (most likely out of memory).** `cpu_forward_seconds` ran
   the full CausalLM, so it also computed 13 × 768 × vocab logits (~6 GB for Qwen) next to an fp32 model and a second int8 copy.
   It now times only the decoder (`get_decoder()`, `last_hidden_state`, `use_cache=False`), the same path as `MoviePredictor`

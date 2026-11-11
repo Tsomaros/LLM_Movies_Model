@@ -55,14 +55,53 @@ so prediction plus explanation stays near the 30 s target.
 
 ## Step 2-3: measurements (to be filled after the Colab runs)
 
+Runs of 2026-11-11.
+- Probes: notebook 10 part B, Colab T4. Each model was asked about 4171 films (director) and 300 films (revenue). The
+  outputs are `model_choice/` in `Tsomaros/llm-movies-raw`.
+- Speed: notebook 12, Colab CPU runtime, int8 dynamic quantization, decoder only, **1 torch thread**, padded to the full
+  768 tokens.
+
 | Model | Stated cutoff | Empirical cutoff | Director recall 2019-20 | Revenue known % | CPU seconds (batch 13, max_len 768) | Cutoff used |
 |---|---|---|---|---|---|---|
-| Qwen3-0.6B-Base | — | — | — | — | — | — |
-| Qwen3-1.7B-Base | — | — | — | — | — | — |
-| Llama-3.2-1B | — | — | — | — | — | — |
-| gemma-3-1b-pt | — | — | — | — | — | — |
-| SmolLM2-1.7B | — | — | — | — | — | — |
-| gemma-4-E2B (conditional) | — | — | — | — | — | — |
+| Qwen3-0.6B-Base | not stated (Qwen3 released 2025-04-29) | not informative (2025-12-31 computed) | 0.006 | 9.7% | 100.5 | pending decision |
+| Qwen3-1.7B-Base | not stated (Qwen3 released 2025-04-29) | not informative (2026-06-30 computed) | 0.022 | 12.3% | 249.3 | pending decision |
+| Llama-3.2-1B | December 2023 | 2022-12-31 | 0.190 | 23.0% | 163.0 | 2023-12-31 |
+| gemma-3-1b-pt | August 2024 | invalid run | invalid run (0.000) | invalid run (0.0%) | 137.5 | 2024-08-31 |
+| SmolLM2-1.7B | not stated | 2022-06-30 | 0.089 | 14.3% | 271.1 | 2022-06-30 |
+| gemma-4-E2B (conditional) | January 2025 | 2024-12-31 | 0.235 | 25.0% | no result (run ended; probably out of memory) | 2025-01-31 |
+
+Director recall per year (2019 → 2026):
+
+| Model | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|
+| Qwen3-0.6B-Base | 0.008 | 0.004 | 0.007 | 0.002 | 0.007 | 0.004 | 0.002 | 0.000 |
+| Qwen3-1.7B-Base | 0.035 | 0.007 | 0.027 | 0.022 | 0.020 | 0.012 | 0.006 | 0.005 |
+| SmolLM2-1.7B | 0.130 | 0.043 | 0.057 | 0.033 | 0.020 | 0.016 | 0.012 | 0.016 |
+| Llama-3.2-1B | 0.223 | 0.152 | 0.175 | 0.138 | 0.062 | 0.030 | 0.027 | 0.032 |
+| gemma-4-E2B | 0.260 | 0.206 | 0.227 | 0.207 | 0.236 | 0.205 | 0.080 | 0.065 |
+
+What the numbers mean:
+
+- **gemma-3-1b-pt: invalid probe run, not zero memorization.**
+  - It scored exactly 0 on both probes, every year, and has no empirical cutoff.
+  - Gemma 4 went through the same code and gave normal results, so the probe code itself works.
+  - The probable cause: `make_generator` loads models in fp16 on CUDA, and Gemma 3 is known to overflow in fp16.
+  - Not confirmed: the answer CSVs have not been inspected.
+  - Rerun it in fp32 only if Gemma 3 stays a contender.
+- **Qwen empirical cutoffs: not informative.**
+  - The threshold is half the 2019-20 recall, which comes to about 0.003 for 0.6B and 0.011 for 1.7B. A single correct
+    answer in a quarter of roughly 150 films clears it, so the latest quarter with one lucky hit wins.
+  - For 1.7B the computed date, 2026-06-30, is after Qwen3's own release on 2025-04-29
+    ([announcement](https://qwenlm.github.io/blog/qwen3/), which states no cutoff).
+  - Applied literally, the "later of stated and empirical" rule would leave the holdout almost empty.
+  - The method does work when recall is high: Gemma 4's empirical 2024-12-31 matches its stated January 2025.
+- **CPU speed: no candidate meets the 20 s rule.**
+  - The fastest, Qwen3-0.6B, takes 100 s per batch-13 pass, about 7.7 s per film.
+  - These were measured on 1 thread with full 768-token padding. Real prompts and the Space's 2 vCPUs will be somewhat
+    faster, but not 5 times faster.
+- **Memorization and leakage.** Low recall means the model knows little about 2019+ films, so less of what it knows
+  could leak into the test set. That favours Qwen.
+- **One family, two sizes.** Among the measured models, only Qwen3 (0.6B and 1.7B) gives one family with two sizes.
 
 ## Step 4: decision
 

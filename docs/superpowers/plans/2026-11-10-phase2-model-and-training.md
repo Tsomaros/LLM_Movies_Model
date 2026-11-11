@@ -175,8 +175,8 @@ tests/eval/test_probe.py, tests/conftest.py (tiny model + tokenizer fixtures)
 Candidates: `Qwen/Qwen3-0.6B`, `Qwen/Qwen3-1.7B`, `meta-llama/Llama-3.2-1B`, `google/gemma-3-1b-pt`, `HuggingFaceTB/SmolLM2-1.7B`; add Gemma 4 E2B only if its licence allows fine-tuning plus a public Space and its CPU time fits. Use base (pretrained), not instruct, checkpoints.
 
 - [ ] **Step 1:** For each candidate, from the official model card: licence, stated training cutoff (or "not stated"), parameter count. Record with links in `docs/model_choice.md`.
-- [ ] **Step 2:** Colab T4 (`10_model_choice`): `director_probe` on 150 films per quarter 2019Q1–2026Q2 (films with ≥100 votes) and `revenue_probe` on 300 validation films, per candidate → `empirical_cutoff` and memorization rate. Colab CPU runtime (`12_speed`): `cpu_forward_seconds` at `max_len` 768.
-- [ ] **Step 3:** Fill the table in `docs/model_choice.md`: licence · stated cutoff · empirical cutoff · director recall 2019–20 · revenue known % · CPU seconds (batch 13). Rule for the cutoff used: the later of stated and empirical.
+- [x] **Step 2:** Colab T4 (`10_model_choice`): `director_probe` on 150 films per quarter 2019Q1–2026Q2 (films with ≥100 votes) and `revenue_probe` on 300 validation films, per candidate → `empirical_cutoff` and memorization rate. Colab CPU runtime (`12_speed`): `cpu_forward_seconds` at `max_len` 768.
+- [x] **Step 3:** Fill the table in `docs/model_choice.md`: licence · stated cutoff · empirical cutoff · director recall 2019–20 · revenue known % · CPU seconds (batch 13). Rule for the cutoff used: the later of stated and empirical.
 - [ ] **Step 4: Decision with Dimitris:** one family and two sizes for E1 (the smaller must run batch 13 in ≤ 20 s on CPU so prediction + explanation stays near the 30 s target). Record it in `docs/model_choice.md` and `PROGRESS.md`.
 - [ ] **Step 5:** Set `base_model_cutoff` in `config/data.yaml` to the chosen family's cutoff; update `tests/test_config.py` to the new value; rebuild and export in Colab (`03_build_and_export`, no re-pull); check the report shows a non-zero holdout. Commit `data: base model chosen, cutoff set, holdout built`.
 
