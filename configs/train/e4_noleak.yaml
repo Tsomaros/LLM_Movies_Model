@@ -1,0 +1,4 @@
+# E4: without the fields that may carry late knowledge (release type, distributor, themes).
+extends: base.yaml
+run_name: e4_noleak
+drop_groups: [release_type, distributor, themes]

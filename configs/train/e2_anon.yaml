@@ -1,0 +1,4 @@
+# E2: names in the prompt replaced by placeholders (Person N, Company N, Distributor, Franchise).
+extends: base.yaml
+run_name: e2_anon
+anonymize: true

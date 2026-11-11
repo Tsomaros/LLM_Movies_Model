@@ -185,8 +185,8 @@ Candidates: `Qwen/Qwen3-0.6B-Base`, `Qwen/Qwen3-1.7B-Base`, `meta-llama/Llama-3.
 **Files:** Create `notebooks/11_train.ipynb`, configs `configs/train/base.yaml` (finalised), `e1_small.yaml`, `e1_large.yaml`, `e2_anon.yaml`, `e3_notext.yaml`, `e4_noleak.yaml`, `e5_nosource.yaml`; Modify `notebooks/README.md`
 
 - [ ] **Step 1:** Run `python -m llm_movies.eval.tokens` with the chosen tokenizer; set `max_len` in `base.yaml` to `recommended_max_len`; record p50/p99 in `PROGRESS.md` (spec target 400–600 tokens; note if exceeded).
-- [ ] **Step 2:** Configs: `base.yaml` = chosen smaller model, `sample_frac: 0.3`. E1 small/large differ only in `base_model`. E2 `anonymize: true`. E3 `drop_groups: [synopsis, tagline]`. E4 `drop_groups: [release_type, distributor, themes]`. E5 `drop_groups: [source_strength]`. Each `run_name` unique.
-- [ ] **Step 3:** `11_train.ipynb`: works on Kaggle (Secrets `HF_TOKEN`, `WANDB_API_KEY`) and Colab; installs `-e ".[train]"` on the platform's torch; runs `python -m llm_movies.model.train --config $CONFIG`; rerunning the same config resumes.
+- [x] **Step 2:** Configs: `base.yaml` = chosen smaller model, `sample_frac: 0.3`. E1 small/large differ only in `base_model`. E2 `anonymize: true`. E3 `drop_groups: [synopsis, tagline]`. E4 `drop_groups: [release_type, distributor, themes]`. E5 `drop_groups: [source_strength]`. Each `run_name` unique.
+- [x] **Step 3:** `11_train.ipynb`: works on Kaggle (Secrets `HF_TOKEN`, `WANDB_API_KEY`) and Colab; installs `-e ".[train]"` on the platform's torch; runs `python -m llm_movies.model.train --config $CONFIG`; rerunning the same config resumes.
 - [ ] **Step 4:** Smoke run on T4 with `sample_frac: 0.01`, `epochs: 1`: a `best` checkpoint appears on the Hub and resumes after a forced restart. Commit `feat(notebooks): training launcher and experiment configs`.
 
 ### Task 12: Experiments E1–E5

@@ -1,6 +1,32 @@
 # Progress
 
 ## Now
+- 2026-11-11: **Phase 2 Task 11 Steps 2-3 done. Step 1 is blocked; Step 4 is the owner's.**
+  - **Step 1 is blocked.** `llm_movies.eval.tokens` needs `films.parquet` from the private `Tsomaros/llm-movies-data`,
+    and the cached Hugging Face token on Windows is rejected (401). `max_len: 768` in `base.yaml` is a placeholder.
+    - To unblock: refresh the token locally with `hf auth login`, then run
+      `uv run python -m llm_movies.eval.tokens --tokenizer Qwen/Qwen3-0.6B-Base --parquet <dir with films.parquet>`.
+    - Then set `max_len` to `recommended_max_len`, record p50 and p99 here, and update `test_repo_base_config_loads`
+      (it pins 768).
+  - **Configs** (`configs/train/`):
+    - `base`: Qwen3-0.6B-Base, `sample_frac` 0.3.
+    - `smoke`: base with `sample_frac` 0.01 and `epochs` 1, under its own run name.
+    - `e1_small`, `e1_large` (1.7B-Base), `e2_anon`, `e3_notext`, `e4_noleak`, `e5_nosource`.
+    - All of them use `extends: base.yaml`. Tests pin each one as base plus only its own change.
+  - **Notebook** `notebooks/11_train.ipynb`, for Kaggle or Colab T4:
+    - The install is `uv sync --frozen --extra train --extra cu132`, not the platform's torch as the plan said, matching
+      the cpu/cu132 constraint.
+    - One secrets cell per platform. `HF_TOKEN` and `WANDB_API_KEY` are both required, because the cell fails on a
+      missing secret.
+    - A `CONFIG` dropdown, which you edit by hand on Kaggle, then `llm_movies.model.train --config {CONFIG}`. Rerunning
+      resumes.
+    - The README warns never to edit a config mid-run.
+  - **Unverified on Kaggle:** its driver must report CUDA ≥ 13.2, and the clone goes to `/content`.
+  - **Reviews:** code-reviewer found that a smoke run under `base` would make the real `base` run stop at once
+    (hence `smoke.yaml`), and that the "optional" W&B secret wasn't optional. Both are fixed. The test-auditor added
+    negative cases for the widened launcher-line patterns. 1246 tests pass, ruff is clean.
+  - **Step 4 (owner, T4):** run `smoke`. Check that `best` appears under `smoke/` on the Hub, force a restart, and check
+    that it resumes.
 - 2026-11-11: **Checked whether Qwen3's low director recall is a probe artifact: it is real.**
   - The Colab CSVs weren't downloaded, because the Hugging Face token cached on Windows is rejected (401). Qwen3-0.6B-Base,
     which is public, was rerun on CPU through `make_generator` instead.

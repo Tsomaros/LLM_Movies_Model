@@ -1,0 +1,4 @@
+# E1 large: the same as E1 small, with the larger Qwen3 base model.
+extends: base.yaml
+run_name: e1_large
+base_model: Qwen/Qwen3-1.7B-Base

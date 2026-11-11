@@ -1,0 +1,4 @@
+# E3: no free text (synopsis and tagline dropped).
+extends: base.yaml
+run_name: e3_notext
+drop_groups: [synopsis, tagline]

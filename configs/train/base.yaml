@@ -1,2 +1,6 @@
+# The shared training config: the chosen smaller model (Task 10) on 30% of the training films.
+# Every experiment config extends this file and changes only what its experiment tests.
 run_name: base
-base_model: Qwen/Qwen3-0.6B-Base  # Task 10 choice (E1 small); Task 11 finalises the rest
+base_model: Qwen/Qwen3-0.6B-Base
+max_len: 768  # placeholder: Task 11 Step 1 sets it to recommended_max_len (needs films.parquet)
+sample_frac: 0.3

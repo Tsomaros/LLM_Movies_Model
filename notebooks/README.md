@@ -192,3 +192,40 @@ Memory on the CPU runtime (about 12 GB) is a risk for notebook 12: a model is lo
 no second copy stays alive. Only the decoder is timed, as the predictor runs it: no vocabulary logits are computed (they alone would have
 been 13 x 768 x 151,936 x 4 bytes, about 6 GB for Qwen) and the lm_head is released after loading. The 1.7B models need about 7 GB for the
 fp32 weights, and Gemma 4 E2B (about 5.1B parameters with embeddings) may still not fit, which is a reason it is last.
+
+# Phase 2: training (`11_train.ipynb`)
+
+One notebook trains one run. It works on **Kaggle or Colab with a T4**. Pick the config, from the form's dropdown on Colab
+or by editing the `CONFIG` line on Kaggle (which has no forms), then run all cells. The configs are in `configs/train/`:
+- `base`: Qwen3-0.6B-Base on 30% of the training films;
+- `smoke`: the base config on 1% of the films for 1 epoch, under its own run name;
+- `e1_small` and `e1_large`: the same base config, with Qwen3-0.6B-Base and Qwen3-1.7B-Base;
+- `e2_anon`: names anonymized;
+- `e3_notext`: no synopsis or tagline;
+- `e4_noleak`: no release type, distributor or themes;
+- `e5_nosource`: no source strength.
+
+Each config has its own `run_name`, so its checkpoints (in `Tsomaros/llm-movies-runs`) and its W&B run are separate.
+
+- **Secrets.**
+  - Kaggle: Add-ons > Secrets, attached to the notebook.
+  - Colab: the key icon, with notebook access switched on.
+  - Both platforms need `HF_TOKEN` (write access) and `WANDB_API_KEY`. Both are required, because the secrets cell
+    fails if one is missing.
+  - The notebook has one secrets cell per platform. Run only yours, because the other cell's import fails.
+- **Install.** `uv sync --frozen --extra train --extra cu132`, the same as notebook 10 part B.
+  - CUDA 13.2 PyTorch needs a GPU driver that reports "CUDA Version" 13.2 or higher in `!nvidia-smi`.
+  - Colab's T4 passed this in Task 10. Kaggle's T4 has not been checked yet; if it shows less, use Colab.
+- **Kaggle settings.** Turn Internet on. The repo is cloned to `/content/LLM_Movies_Model` there as well, so the notebook
+  is the same on both platforms.
+- **Resume.** Run the notebook again with the same config. Training continues from the run's `last` checkpoint on the
+  Hub, which is saved every `save_every_steps` steps and at each validation. Rerunning a finished run, whether it
+  stopped on patience or after all epochs, ends at once instead of training again (after loading the data and the
+  model).
+  - **Never edit a config while its run is unfinished.** The saved step count would no longer match the new
+    `sample_frac`, `batch_size` or `epochs`. To change a run, give it a new `run_name`.
+- **Before the real runs** (Task 11 Step 4, on a T4), run the `smoke` config.
+  - It has its own `run_name`. A smoke run under `base` would leave a finished 1-epoch checkpoint, and the real `base`
+    run would resume from it and stop at once.
+  - Check that a `best` checkpoint appears under `smoke/` on the Hub, then force a restart and check that the run
+    resumes.

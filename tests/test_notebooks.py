@@ -15,6 +15,7 @@ EXPECTED = [
     "02_pull_wikidata.ipynb",
     "03_build_and_export.ipynb",
     "10_model_choice.ipynb",
+    "11_train.ipynb",
     "12_speed.ipynb",
 ]
 NEEDS_TMDB_TOKEN = {"01_pull_tmdb.ipynb", "02_pull_wikidata.ipynb", "03_build_and_export.ipynb"}  # the others read only HF_TOKEN
@@ -31,9 +32,17 @@ ALLOWED = [
     ),
     ("repo root", re.compile(r"^%cd /content/LLM_Movies_Model$")),
     ("uv", re.compile(r"^!(pip install -q uv|uv sync --frozen( --extra train --extra (cpu|cu132))?)$")),
-    ("secret", re.compile(r"^(import os|from google\.colab import userdata|os\.environ\[\"(TMDB_READ_TOKEN|HF_TOKEN)\"\] = userdata\.get\(\"\2\"\))$")),
+    ("secret", re.compile(r"^(import os|from google\.colab import userdata|os\.environ\[\"(TMDB_READ_TOKEN|HF_TOKEN|WANDB_API_KEY)\"\] = userdata\.get\(\"\2\"\))$")),
+    # Kaggle reads the same secrets through its own client (notebook 11 runs on Kaggle or Colab)
+    (
+        "kaggle secret",
+        re.compile(
+            r"^(from kaggle_secrets import UserSecretsClient"
+            r"|os\.environ\[\"(HF_TOKEN|WANDB_API_KEY)\"\] = UserSecretsClient\(\)\.get_secret\(\"\2\"\))$"
+        ),
+    ),
     ("uv frozen", re.compile(r"^os\.environ\[\"UV_FROZEN\"\] = \"1\"$")),
-    ("form", re.compile(r"^(LIMIT = \"\d*\"|MAX_CHUNKS = \"\d*\"|PUSH = False|PARTIAL = False)\s+#@param .*$")),
+    ("form", re.compile(r"^(LIMIT = \"\d*\"|MAX_CHUNKS = \"\d*\"|PUSH = False|PARTIAL = False|CONFIG = \"configs/train/\w+\.yaml\")\s+#@param .*$")),
     (
         "derived form",
         re.compile(
@@ -473,3 +482,103 @@ def test_notebooks_10_and_12_read_only_the_hub_token_and_upload_nothing_but_thro
     for path in (NB10, NB12):
         text = path.read_text(encoding="utf-8")
         assert "TMDB_READ_TOKEN" not in text and "hub_store upload" not in text
+
+
+# ---- notebook 11 (training, Kaggle or Colab) ----
+
+NB11 = NOTEBOOKS[EXPECTED.index("11_train.ipynb")]
+CONFIG_FORM = re.compile(r'^CONFIG = "(configs/train/\w+\.yaml)"  #@param \[(.*)\]$')
+
+
+def test_notebook_11_syncs_cuda_torch_and_the_train_extra_before_training():
+    lines = code_lines(load(NB11))
+    assert _sync_lines(NB11) == ["!uv sync --frozen --extra train --extra cu132"]
+    assert lines.index(_sync_lines(NB11)[0]) < lines.index(cli_lines(load(NB11))[0])
+
+
+def test_notebook_11_reads_both_secrets_on_colab_and_on_kaggle_before_training():
+    lines = code_lines(load(NB11))
+    first_cli = lines.index(cli_lines(load(NB11))[0])
+    for name in ("HF_TOKEN", "WANDB_API_KEY"):
+        for line in (f'os.environ["{name}"] = userdata.get("{name}")', f'os.environ["{name}"] = UserSecretsClient().get_secret("{name}")'):
+            assert lines.count(line) == 1 and lines.index(line) < first_cli, line
+    # the Colab and Kaggle secrets sit in separate cells, so each platform runs only the cell it can import
+    cells = ["".join(c["source"]) for c in load(NB11)["cells"] if c["cell_type"] == "code"]
+    assert not any("google.colab" in c and "kaggle_secrets" in c for c in cells)
+    # and each secrets cell imports what its own lines use (a Kaggle line under the Colab import would crash on that platform)
+    colab = [c for c in cells if "userdata.get" in c]
+    kaggle = [c for c in cells if "get_secret" in c]
+    assert len(colab) == 1 and len(kaggle) == 1
+    assert "import os" in colab[0] and "from google.colab import userdata" in colab[0] and "UserSecretsClient" not in colab[0]
+    assert "import os" in kaggle[0] and "from kaggle_secrets import UserSecretsClient" in kaggle[0] and "userdata" not in kaggle[0]
+
+
+def test_notebook_11_trains_exactly_the_chosen_config_and_offers_every_config():
+    lines = code_lines(load(NB11))
+    assert cli_calls(load(NB11)) == ["!uv run python -m llm_movies.model.train --config {CONFIG}"]
+    forms = [m for m in map(CONFIG_FORM.match, lines) if m]
+    assert len(forms) == 1
+    default, options = forms[0].group(1), re.findall(r'"([^"]+)"', forms[0].group(2))
+    assert default == "configs/train/base.yaml"
+    assert options[0] == default and len(options) == len(set(options))  # base first, each config once
+    assert set(options) == {f"configs/train/{p.name}" for p in (Path(__file__).parent.parent / "configs" / "train").glob("*.yaml")}
+    assert lines.index(forms[0].group(0)) < lines.index(cli_lines(load(NB11))[0])
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        # secret kinds: the variable and the secret read must be the same name, and only the three known names
+        'os.environ["HF_TOKEN"] = userdata.get("WANDB_API_KEY")',
+        'os.environ["WANDB_API_KEY"] = userdata.get("HF_TOKEN")',
+        'os.environ["TMDB_READ_TOKEN"] = userdata.get("HF_TOKEN")',
+        'os.environ["OTHER_KEY"] = userdata.get("OTHER_KEY")',
+        'os.environ["WANDB_API_KEY"] = userdata.get("WANDB_API_KEY") + "x"',
+        'os.environ["HF_TOKEN"] = "hf_literal"',
+        'os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("WANDB_API_KEY")',
+        'os.environ["WANDB_API_KEY"] = UserSecretsClient().get_secret("HF_TOKEN")',
+        'os.environ["OTHER_KEY"] = UserSecretsClient().get_secret("OTHER_KEY")',
+        'os.environ["TMDB_READ_TOKEN"] = UserSecretsClient().get_secret("TMDB_READ_TOKEN")',  # the data notebooks are Colab-only
+        'os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN"); print(os.environ["HF_TOKEN"])',
+        "from kaggle_secrets import UserSecretsClient, evil",
+        "import kaggle_secrets",
+        "from kaggle_secrets import *",
+        # the form kind: only a YAML file directly inside configs/train
+        'CONFIG = "other/base.yaml"  #@param ["other/base.yaml"]',
+        'CONFIG = "configs/base.yaml"  #@param ["configs/base.yaml"]',
+        'CONFIG = "/etc/configs/train/base.yaml"  #@param ["x"]',
+        'CONFIG = "configs/train/sub/base.yaml"  #@param ["x"]',
+        'CONFIG = "configs/train/../base.yaml"  #@param ["x"]',
+        'CONFIG = "configs/train/../../evil.yaml"  #@param ["x"]',
+        'CONFIG = "configs/train/base.yml"  #@param ["x"]',
+        'CONFIG = "configs/train/.yaml"  #@param ["x"]',
+        'CONFIG = "configs/train/base.yaml"',  # no #@param: not a form cell
+        'CONFIG = "configs/train/base.yaml" + evil  #@param ["x"]',
+        'CONFIG = os.environ["X"]  #@param ["x"]',
+    ],
+)
+def test_the_secret_and_form_kinds_reject_mismatched_or_outside_lines(line):
+    assert not line_ok(line)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        'os.environ["HF_TOKEN"] = userdata.get("HF_TOKEN")',
+        'os.environ["WANDB_API_KEY"] = userdata.get("WANDB_API_KEY")',
+        'os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")',
+        'os.environ["WANDB_API_KEY"] = UserSecretsClient().get_secret("WANDB_API_KEY")',
+        "from kaggle_secrets import UserSecretsClient",
+        'CONFIG = "configs/train/e4_noleak.yaml"  #@param ["configs/train/e4_noleak.yaml"]',
+    ],
+)
+def test_the_secret_and_form_kinds_accept_the_real_forms(line):
+    assert line_ok(line)
+
+
+@pytest.mark.parametrize("path", [p for p in NOTEBOOKS if p.name != "11_train.ipynb"], ids=lambda p: p.name)
+def test_only_notebook_11_reads_kaggle_secrets_wandb_or_a_train_config(path):
+    # the widened ALLOWED kinds exist for the training launcher; no other notebook may use them
+    lines = code_lines(load(path))
+    for needle in ("kaggle_secrets", "UserSecretsClient", "WANDB_API_KEY", "CONFIG ="):
+        assert not [line for line in lines if needle in line], f"{path.name} uses {needle}"

@@ -1,0 +1,5 @@
+# Task 11 Step 4 smoke run: a tiny 1-epoch run under its own run name, so the real runs never resume from it.
+extends: base.yaml
+run_name: smoke
+sample_frac: 0.01
+epochs: 1

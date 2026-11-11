@@ -1,0 +1,4 @@
+# E5: without the source-material strength.
+extends: base.yaml
+run_name: e5_nosource
+drop_groups: [source_strength]
