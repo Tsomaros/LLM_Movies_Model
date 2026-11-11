@@ -2,5 +2,5 @@
 # Every experiment config extends this file and changes only what its experiment tests.
 run_name: base
 base_model: Qwen/Qwen3-0.6B-Base
-max_len: 768  # placeholder: Task 11 Step 1 sets it to recommended_max_len (needs films.parquet)
+max_len: 832  # Task 11 Step 1: recommended_max_len (ceil(p99 / 64) * 64) with the Qwen3 tokenizer; p50 663, p99 829, max 924
 sample_frac: 0.3

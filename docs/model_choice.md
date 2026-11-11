@@ -145,6 +145,10 @@ revenue answers looked normal.
   - Films between the real data cutoff and that date fall into test. That is the conservative direction.
   - This replaces the "later of stated and empirical" rule for Qwen only.
 - **CPU rule:** batch 13 at max_len 768 in **<= 300 s** on CPU, up from 20 s.
+  - The rule stays at 768 on purpose, because that is the length it was measured at, even though training uses
+    `max_len` 832 (Task 11 Step 1).
+  - 832 is about 8% more tokens, so serving should cost roughly 110 s for 0.6B and 270 s for 1.7B. Both stay under
+    300 s. This is an estimate, not a measurement.
   - Both sizes pass as measured (100 s and 249 s on 1 thread).
   - So E1 (Task 12) picks between the sizes on accuracy alone.
   - Expect a Space answer with explanations to take about 2 to 5 minutes.

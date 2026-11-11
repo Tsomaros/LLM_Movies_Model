@@ -29,7 +29,7 @@ def test_extends_resolves_next_to_child(tmp_path):
 
 def test_repo_base_config_loads():
     cfg = load_train_config("configs/train/base.yaml")
-    assert cfg.run_name == "base" and cfg.base_model and cfg.lora_r == 16 and cfg.max_len == 768
+    assert cfg.run_name == "base" and cfg.base_model and cfg.lora_r == 16 and cfg.max_len == 832  # Task 11 Step 1
 
 
 def test_unknown_key_raises(tmp_path):

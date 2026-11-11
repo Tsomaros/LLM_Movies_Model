@@ -1,13 +1,16 @@
 # Progress
 
 ## Now
-- 2026-11-11: **Phase 2 Task 11 Steps 2-3 done. Step 1 is blocked; Step 4 is the owner's.**
-  - **Step 1 is blocked.** `llm_movies.eval.tokens` needs `films.parquet` from the private `Tsomaros/llm-movies-data`,
-    and the cached Hugging Face token on Windows is rejected (401). `max_len: 768` in `base.yaml` is a placeholder.
-    - To unblock: refresh the token locally with `hf auth login`, then run
-      `uv run python -m llm_movies.eval.tokens --tokenizer Qwen/Qwen3-0.6B-Base --parquet <dir with films.parquet>`.
-    - Then set `max_len` to `recommended_max_len`, record p50 and p99 here, and update `test_repo_base_config_loads`
-      (it pins 768).
+- 2026-11-11: **Phase 2 Task 11 Steps 1-3 done. Step 4, the T4 smoke run, is the owner's.**
+  - **Step 1, token lengths** (Qwen3-0.6B-Base tokenizer, open-split films, nothing hidden): p50 663, p90 759,
+    p99 829, max 924.
+    - `max_len` is **832** (`recommended_max_len`) in `base.yaml`, and `test_repo_base_config_loads` pins it.
+    - **This exceeds the spec target of 400-600 tokens** (p50 663).
+    - About 1% of prompts are cut on the right, which trims only the end of the synopsis.
+    - Not measured: lengths with `anonymize` on (E2).
+    - The CPU rule stays defined at 768. At 832 it should still fit under 300 s (an estimate, in
+      `docs/model_choice.md`).
+    - The local HF token was refreshed (`hf auth login --force`).
   - **Configs** (`configs/train/`):
     - `base`: Qwen3-0.6B-Base, `sample_frac` 0.3.
     - `smoke`: base with `sample_frac` 0.01 and `epochs` 1, under its own run name.
