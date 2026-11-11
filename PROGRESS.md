@@ -1,6 +1,16 @@
 # Progress
 
 ## Now
+- 2026-11-11: **Hotfix after the first Colab run of notebook 10 part B ("No GPU found" on a T4).** `uv sync --frozen` installed the
+  dev group's CPU torch and no `train` extra, so the uv venv hid the T4. Torch is now two conflicting extras: `cpu` (CPU index)
+  and `cu132` (CUDA 13.2 index; torch 2.15.0 has CUDA wheels only for cu132/cu134, and 13.2 still supports the T4's sm_75).
+  Always pair `train` with one of them. **Local/Windows and the Linux side: `uv sync --extra train --extra cpu`** (Linux:
+  `UV_PROJECT_ENVIRONMENT=$HOME/.venv-llm uv sync --extra train --extra cpu`); CI runs `uv sync --locked --extra train --extra cpu`.
+  Notebook 10: part A (CPU) `uv sync --frozen` (no torch); part B (T4) `uv sync --frozen --extra train --extra cu132` in its own
+  cell, after the shared Setup and Secrets cells. Notebook 12: `--extra train --extra cpu`. Before part B, check `!nvidia-smi`
+  in a scratch cell: "CUDA Version" must be ≥ 13.2 (unverified for Colab's T4 driver); don't re-run part A's sync after part B's
+  (exact sync removes torch). The plan's Global Constraint on torch is updated. 1182 tests pass, ruff clean; code-reviewer and
+  test-auditor run on Windows. The owner's db/movies.db upload (part A) already succeeded.
 - 2026-11-11: **Phase 2 Task 10 prepared** (Step 1 done; Steps 2–5 wait for Colab runs and the decision). `docs/model_choice.md`
   holds the official model-card facts: Qwen3-0.6B-Base and 1.7B-Base (Apache 2.0, ungated, cutoff not stated; the plan's ids
   without `-Base` are the post-trained models), Llama-3.2-1B (gated, cutoff December 2023, "Built with Llama" and a "Llama..." name
