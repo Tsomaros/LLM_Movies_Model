@@ -9,6 +9,7 @@ python -m llm_movies.eval.probe revenue|director --model ID --db PATH --n N --ou
     make_generator(model_id, device, ...)   -> generate(list[str]) -> list[str] (greedy, batched, left padded)
     load_revenue_films(db, n, seed)         -> validation films with a usable revenue (never test or holdout)
     load_director_films(db, n, seed, min_votes) -> any-year films with title, year, release_date, directors
+    load_director_films_by_quarter(db, per_quarter, first, last, seed, min_votes) -> the same, capped per release quarter
 
 Leak rules: the revenue probe reads only the validation split. The director probe selects id, title, release date and
 director names only; `vote_count` may pick which films to ask about but is never returned.
@@ -197,10 +198,8 @@ def load_revenue_films(db: Path, n: int, seed: int = 0) -> pd.DataFrame:
     return df.sample(n=min(n, len(df)), random_state=seed).reset_index(drop=True)
 
 
-def load_director_films(db: Path, n: int, seed: int = 0, min_votes: int = 100) -> pd.DataFrame:
-    """Up to `n` films of any year: tmdb_id, title, year, release_date, directors.
-
-    `min_votes` only picks which films to ask about; vote_count is not returned."""
+def _director_films(db: Path, min_votes: int) -> pd.DataFrame:
+    """Every film with a director, vote_count >= `min_votes`: tmdb_id, title, year, release_date, directors."""
     with sqlite3.connect(db) as con:
         df = pd.read_sql_query(
             "SELECT m.tmdb_id, m.title, m.year, m.release_date, p.name AS director FROM movies m "
@@ -211,8 +210,36 @@ def load_director_films(db: Path, n: int, seed: int = 0, min_votes: int = 100) -
             params=(min_votes,),
         )
     films = df.groupby(["tmdb_id", "title", "year", "release_date"], sort=True)["director"].apply(list)
-    films = films.rename("directors").reset_index()
+    return films.rename("directors").reset_index()
+
+
+def load_director_films(db: Path, n: int, seed: int = 0, min_votes: int = 100) -> pd.DataFrame:
+    """Up to `n` films of any year: tmdb_id, title, year, release_date, directors.
+
+    `min_votes` only picks which films to ask about; vote_count is not returned."""
+    films = _director_films(db, min_votes)
     return films.sample(n=min(n, len(films)), random_state=seed).reset_index(drop=True)
+
+
+def load_director_films_by_quarter(
+    db: Path,
+    per_quarter: int,
+    first: tuple[int, int] = (2019, 1),
+    last: tuple[int, int] = (2026, 2),
+    seed: int = 0,
+    min_votes: int = 100,
+) -> pd.DataFrame:
+    """Up to `per_quarter` films from each release quarter `first`..`last` (year, quarter; both included), same columns and
+    leak rules as `load_director_films`. A quarter with fewer films keeps all of them. Sorted by release date and id."""
+    films = _director_films(db, min_votes)
+    dates = pd.to_datetime(films["release_date"], errors="coerce")
+    index = dates.dt.year * 4 + dates.dt.quarter - 1
+    keep = (index >= first[0] * 4 + first[1] - 1) & (index <= last[0] * 4 + last[1] - 1)
+    films, index = films[keep], index[keep]
+    parts = [g.sample(n=min(per_quarter, len(g)), random_state=seed) for _, g in films.groupby(index)]
+    if not parts:
+        return films.iloc[0:0].reset_index(drop=True)
+    return pd.concat(parts).sort_values(["release_date", "tmdb_id"]).reset_index(drop=True)
 
 
 def main(argv: list[str] | None = None) -> None:

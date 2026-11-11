@@ -10,7 +10,15 @@ from pathlib import Path
 import pytest
 
 NOTEBOOKS = sorted((Path(__file__).parent.parent / "notebooks").glob("*.ipynb"))
-EXPECTED = ["01_pull_tmdb.ipynb", "02_pull_wikidata.ipynb", "03_build_and_export.ipynb"]
+EXPECTED = [
+    "01_pull_tmdb.ipynb",
+    "02_pull_wikidata.ipynb",
+    "03_build_and_export.ipynb",
+    "10_model_choice.ipynb",
+    "12_speed.ipynb",
+]
+NEEDS_TMDB_TOKEN = {"01_pull_tmdb.ipynb", "02_pull_wikidata.ipynb", "03_build_and_export.ipynb"}  # the others read only HF_TOKEN
+CHAINS = {"10_model_choice.ipynb": 2}  # one `&&` chain per runtime part; every other notebook has exactly one
 
 REPO_URL = "https://github.com/Tsomaros/LLM_Movies_Model"
 RAW_REPO = "Tsomaros/llm-movies-raw"
@@ -86,7 +94,7 @@ def line_ok(line: str) -> bool:
     return any(pattern.match(line) for _, pattern in ALLOWED)
 
 
-def test_the_three_notebooks_exist():
+def test_the_expected_notebooks_exist():
     assert [p.name for p in NOTEBOOKS] == EXPECTED
 
 
@@ -112,15 +120,16 @@ def test_every_code_line_is_an_allowed_kind(path):
 
 
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.name)
-def test_each_notebook_clones_syncs_reads_both_secrets_then_runs_clis(path):
+def test_each_notebook_clones_syncs_reads_its_secrets_then_runs_clis(path):
     lines = code_lines(load(path))
     for kind in ("clone or pull", "repo root", "uv", "cli"):
         pattern = dict(ALLOWED)[kind]
         assert any(pattern.match(line) for line in lines), f"{path.name} has no {kind} line"
-    secrets = [
-        'os.environ["TMDB_READ_TOKEN"] = userdata.get("TMDB_READ_TOKEN")',
-        'os.environ["HF_TOKEN"] = userdata.get("HF_TOKEN")',
-    ]
+    secrets = ['os.environ["HF_TOKEN"] = userdata.get("HF_TOKEN")']
+    if path.name in NEEDS_TMDB_TOKEN:
+        secrets.append('os.environ["TMDB_READ_TOKEN"] = userdata.get("TMDB_READ_TOKEN")')
+    else:
+        assert not [line for line in lines if "TMDB_READ_TOKEN" in line], f"{path.name} must not read the TMDB token"
     positions = [lines.index(s) for s in secrets]
     first_cli = next(i for i, line in enumerate(lines) if line.startswith("!uv run"))
     clone, cd, sync = lines.index(next(x for x in lines if x.startswith("!test -d"))), lines.index("%cd /content/LLM_Movies_Model"), lines.index("!uv sync --frozen")
@@ -179,7 +188,7 @@ def test_google_drive_appears_nowhere(path):
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.name)
 def test_everything_lives_under_content_and_in_the_one_private_repo(path):
     for line in cli_calls(load(path)):
-        for flag in ("--dir", "--out", "--tmdb", "--wd-films", "--wd-people", "--ids", "--db", "--parquet"):
+        for flag in ("--dir", "--raw-dir", "--out", "--tmdb", "--wd-films", "--wd-people", "--ids", "--db", "--parquet"):
             for value in re.findall(rf" {flag} (\S+)", line):
                 assert value.startswith("/content/"), line
         for value in re.findall(r" --repo (\S+)", line):
@@ -292,9 +301,9 @@ def test_flags_added_by_derived_form_lines_exist_in_the_real_clis():
 
 
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.name)
-def test_all_cli_steps_are_one_chain_so_one_failure_stops_them_all(path):
+def test_all_cli_steps_are_one_chain_per_runtime_part_so_one_failure_stops_them_all(path):
     # a failed download must never be followed by a pull, build or upload that then overwrites saved state
-    assert len(cli_lines(load(path))) == 1
+    assert len(cli_lines(load(path))) == CHAINS.get(path.name, 1)
 
 
 @pytest.mark.parametrize("path", NOTEBOOKS, ids=lambda p: p.name)
@@ -353,3 +362,52 @@ def test_wikidata_sync_interval_is_not_set_in_the_notebooks():
 
 def test_partial_flag_exists_in_shard_ids():
     assert "--partial" in _help(["llm_movies.data.shard_ids"])
+
+
+# ---- notebooks 10 (model choice) and 12 (CPU speed) ----
+
+NB10, NB12 = (NOTEBOOKS[EXPECTED.index(name)] for name in ("10_model_choice.ipynb", "12_speed.ipynb"))
+
+
+def _markdown(path: Path) -> str:
+    return " ".join("".join(c["source"]) for c in load(path)["cells"] if c["cell_type"] == "markdown")
+
+
+def test_notebook_10_part_a_ensures_the_database_and_part_b_fetches_it_then_probes():
+    part_a, part_b = cli_lines(load(NB10))
+    assert len(chain_parts(part_a)) == 1
+    assert part_a == f"!uv run python -m llm_movies.data.db_snapshot ensure --raw-dir /content/raw --out /content/build/movies.db --repo {RAW_REPO}"
+    fetch, probe = chain_parts(part_b)
+    assert fetch.startswith("!uv run python -m llm_movies.data.db_snapshot fetch ") and f"--repo {RAW_REPO}" in fetch
+    assert probe.startswith("!uv run python -m llm_movies.eval.model_choice run ") and f"--repo {RAW_REPO}" in probe
+    assert " --out /content/build/movies.db" in fetch and " --db /content/build/movies.db" in probe
+    assert re.search(r" --out /content/model_choice( |$)", probe)
+    # the chain fetches before it probes, and the notebook picks the models, films and seed from the package defaults
+    assert not any(flag in part_b for flag in ("--models", "--per-quarter", "--quarters", "--revenue-n", "--min-votes", "--seed"))
+    lines = code_lines(load(NB10))
+    assert lines.index(part_a) < lines.index(part_b)
+
+
+def test_notebook_10_names_the_two_runtimes_and_the_gated_licences():
+    text = _markdown(NB10)
+    assert "CPU runtime" in text and "T4" in text and "Part A" in text and "Part B" in text
+    assert "Llama 3.2" in text and "Gemma 3" in text and "licence" in text
+
+
+def test_notebook_12_times_every_candidate_once_at_768_and_batch_13_gated_last():
+    from llm_movies.eval.model_choice import CANDIDATES, GATED
+
+    (line,) = cli_lines(load(NB12))
+    calls = chain_parts(line)
+    assert all(c.startswith("!uv run python -m llm_movies.eval.speed ") for c in calls)
+    assert all(re.search(r" --max-len 768( |$)", c) and re.search(r" --batch 13( |$)", c) for c in calls)
+    models = [re.search(r" --model (\S+)", c).group(1) for c in calls]
+    assert models == list(CANDIDATES)  # one call per candidate, in the package's order
+    assert models[-len(GATED) - 1:-1] == list(GATED)  # gated models come after every open one (the conditional one is last)
+    assert "CPU runtime" in _markdown(NB12)
+
+
+def test_notebooks_10_and_12_read_only_the_hub_token_and_upload_nothing_but_through_the_package():
+    for path in (NB10, NB12):
+        text = path.read_text(encoding="utf-8")
+        assert "TMDB_READ_TOKEN" not in text and "hub_store upload" not in text

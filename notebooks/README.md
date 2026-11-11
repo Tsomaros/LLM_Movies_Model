@@ -1,6 +1,6 @@
 # Colab launchers for the data pipeline
 
-Three notebooks run the data pipeline on Google Colab. They hold no logic: each one clones this repo, runs
+Three notebooks (01 to 03) run the data pipeline on Google Colab. They hold no logic: each one clones this repo, runs
 `uv sync --frozen`, reads its secrets, and then calls `python -m llm_movies....` commands. All the code is in the
 package and its tests.
 
@@ -106,3 +106,59 @@ of a 500 or 1,000 id sample, and the first real chunks will correct it.
   build runs again). `min_votes` only affects the export, but any other change in `config/data.yaml` (split years, `base_model_cutoff`)
   needs the rebuild too: `export` stops if the database was built with the old values.
 - The first push needs the Colab Secret `HF_TOKEN` and the dataset repo `Tsomaros/llm-movies-data` to be **private or absent**.
+
+# Phase 2: model choice
+
+Two more notebooks pick the base model. They also hold no logic (`llm_movies.data.db_snapshot`, `llm_movies.eval.model_choice`,
+`llm_movies.eval.speed`) and need only the Colab Secret `HF_TOKEN`, not `TMDB_READ_TOKEN`. The candidate list lives in one place,
+`CANDIDATES` in `llm_movies/eval/model_choice.py`; `12_speed.ipynb` repeats it, and a test keeps the two equal.
+
+| model | notes |
+| --- | --- |
+| `Qwen/Qwen3-0.6B-Base`, `Qwen/Qwen3-1.7B-Base` | the **-Base** (pretrained) checkpoints; Qwen ids without `-Base` are post-trained and not used |
+| `HuggingFaceTB/SmolLM2-1.7B` | open |
+| `meta-llama/Llama-3.2-1B` | gated: licence step below |
+| `google/gemma-3-1b-pt` | gated: licence step below |
+| `google/gemma-4-E2B` | **conditional** (Apache 2.0): kept only if its CPU time allows. About 5.1B parameters with embeddings, so expect the slowest CPU time. It may be multimodal and fail to load as a plain causal LM; both notebooks put it last, so a failure costs nothing earlier |
+
+## Run order
+
+1. **`10_model_choice.ipynb`, part A, on a CPU runtime, once.** Rebuilds `movies.db` from the raw shards and uploads it to the raw repo
+   as `db/movies.db`. If the repo already holds it, the command says so and does nothing (no download, no build).
+2. **`10_model_choice.ipynb`, part B, on a T4 GPU runtime.** Change the runtime, run the Setup and Secrets cells again (the new machine
+   is empty), then the part B cell. It downloads `db/movies.db` only, then probes each model: director recall (150 films per release
+   quarter from 2019Q1 to 2026Q2, at least 100 votes) and revenue memorization (300 validation films), the same films for every model.
+   After **each** model it uploads that model's two CSVs and `summary.json` / `summary.md` to `model_choice/` in the raw repo. **To resume,
+   rerun part B**: a model already `ok` is skipped; a failed one is tried again. Without a GPU it stops with a message.
+3. **`12_speed.ipynb` on a CPU runtime.** Times one forward pass (batch 13, 768 tokens, int8) per candidate, in the order of the list
+   above, and prints one line per model. Nothing is uploaded; copy the numbers into `docs/model_choice.md`.
+
+## The gated models (Llama 3.2 and Gemma 3)
+
+Before the first run, on huggingface.co, signed in with the **same account that owns `HF_TOKEN`**, open
+`meta-llama/Llama-3.2-1B` and `google/gemma-3-1b-pt` and accept each licence. The token also needs **read access to gated repos**
+(a fine-grained token: tick "Read access to contents of all public gated repos you can access"). For these notebooks `HF_TOKEN` also
+needs **write access to the raw repo**. If a licence is not accepted, notebook 10 records that model as failed with the Hub's error
+message (never the token) and goes on to the next; accept the licence and rerun part B. In notebook 12 the gated models come after the
+open ones, so a refused licence stops the chain only after the open models are timed.
+
+The raw repo gains two folders:
+
+```
+db/movies.db                  the built database, uploaded once by 10 part A
+model_choice/                 <model>_director.csv, <model>_revenue.csv, summary.json, summary.md (10 part B)
+```
+
+## Expected run times (ESTIMATES, nothing here was measured on Colab)
+
+| step | estimate | how it was derived |
+| --- | --- | --- |
+| 10 part A, shard download | the raw shards are at least about 7 GB (see the size note above) | the same measured per-film sizes as above, times 1.2 million films |
+| 10 part A, build | on the order of an hour | a measured 2.5 s for 995 films, multiplied straight up to 1.2 million films (about 50 minutes); not measured at scale, and memory at that size is unknown |
+| 10 part B, per model | roughly 5 to 15 minutes, plus the first-time model download (about 1 to 4 GB) | 30 quarters x 150 = up to 4,500 director prompts plus 300 revenue prompts, 12 new tokens each, greedy, batches of 16 in fp16: about 300 batches of about 12 decoding steps. The seconds per step on a T4 is a guess, not a measurement |
+| 10 part B, all six | about 1 to 1.5 hours if all load | six times the per-model estimate; a rerun resumes after the last uploaded model |
+| 12, per model | tens of minutes | 6 forward passes (1 warm-up and 5 timed) of 13 x 768 = 9,984 tokens; a forward pass costs about 2 x parameters x tokens FLOPs, about 20 TFLOP for a 1B model; a free Colab CPU with 2 cores may sustain on the order of 50 to 100 GFLOP/s, so minutes per pass |
+| 12, all six | several hours; the 5.1B Gemma 4 E2B alone may take much longer than the rest | the sum of the per-model estimates |
+
+Memory on the CPU runtime (about 12 GB) is a risk for notebook 12: a model is loaded in fp32 and then copied by the int8 quantizer. The 1.7B
+models need about 7 GB for the fp32 weights alone, and Gemma 4 E2B more than that, so it may run out of memory. That is a reason it is last.

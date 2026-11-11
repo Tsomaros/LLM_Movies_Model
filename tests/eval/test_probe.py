@@ -241,3 +241,32 @@ def test_make_generator_left_pads_and_returns_only_new_text(tiny_lm, tiny_tokeni
     assert together == [alone(short), alone(long_), alone(short)]
     # the prompt itself is not echoed: at most max_new_tokens tokens come back
     assert all(len(tiny_tokenizer(t)["input_ids"]) <= 4 for t in together)
+
+
+def _quarter_db(path):
+    db = _mini_db(path)
+    con = sqlite3.connect(db)
+    con.execute("DELETE FROM movies")
+    con.execute("DELETE FROM credits")
+    rows = [(10 + i, f"Q{i}", f"2019-0{1 + i % 3}-1{i % 9}", 2019, 1e8, 0, 0, 900, 7.0, "test") for i in range(6)]  # 2019Q1, six films
+    rows += [(30, "Q2 only", "2019-05-01", 2019, 1e8, 0, 0, 900, 7.0, "test"), (31, "Too early", "2018-12-31", 2018, 1e8, 0, 0, 900, 7.0, "validation")]
+    rows += [(32, "Too late", "2020-07-01", 2020, 1e8, 0, 0, 900, 7.0, "test"), (33, "Few votes", "2019-02-02", 2019, 1e8, 0, 0, 5, 7.0, "test")]
+    con.executemany("INSERT INTO movies VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
+    con.executemany("INSERT INTO credits VALUES (?,1,'director',0)", [(r[0],) for r in rows])
+    con.commit()
+    con.close()
+    return db
+
+
+def test_load_director_films_by_quarter_caps_each_quarter_and_stays_in_range(tmp_path):
+    from llm_movies.eval.probe import load_director_films_by_quarter
+
+    db = _quarter_db(tmp_path / "q.db")
+    films = load_director_films_by_quarter(db, per_quarter=4, first=(2019, 1), last=(2020, 2), seed=3, min_votes=100)
+    quarters = pd.to_datetime(films["release_date"]).dt.quarter.tolist()
+    assert quarters.count(1) == 4 and quarters.count(2) == 1  # capped at 4 of six; the quarter with one film keeps it
+    assert not {31, 32, 33} & set(films["tmdb_id"])  # outside the range, or too few votes
+    assert set(films.columns) == {"tmdb_id", "title", "year", "release_date", "directors"}  # no revenue, score or votes
+    again = load_director_films_by_quarter(db, per_quarter=4, first=(2019, 1), last=(2020, 2), seed=3, min_votes=100)
+    assert films.equals(again)
+    assert load_director_films_by_quarter(db, per_quarter=10, first=(2019, 1), last=(2019, 1), seed=0)["tmdb_id"].nunique() == 6

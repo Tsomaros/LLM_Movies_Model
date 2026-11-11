@@ -54,7 +54,7 @@ def main(argv: list[str] | None = None) -> None:
     import torch
 
     seconds = cpu_forward_seconds(args.model, args.max_len, args.batch, not args.no_int8)
-    print(f"{seconds:.2f} s per forward pass ({torch.get_num_threads()} torch threads)")
+    print(f"{args.model}: {seconds:.2f} s per forward pass (batch {args.batch}, max_len {args.max_len}, {torch.get_num_threads()} torch threads)")
 
 
 if __name__ == "__main__":

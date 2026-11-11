@@ -205,6 +205,14 @@ def download_file(repo_id: str, name: str, folder: Path, *, repo_type: str = "da
     return Path(_retry(lambda: api.hf_hub_download(repo_id, name, repo_type=repo_type, local_dir=folder)))
 
 
+def has_file(repo_id: str, name: str, *, api=None, repo_type: str = "dataset") -> bool:
+    """True when the repo exists and holds the file `name`."""
+    api = api or make_api()
+    if not _retry(lambda: api.repo_exists(repo_id, repo_type=repo_type)):
+        return False
+    return name in _retry(lambda: api.list_repo_files(repo_id, repo_type=repo_type))
+
+
 def read_json(repo_id: str, path_in_repo: str, *, api=None, repo_type: str = "dataset"):
     """The JSON file at `path_in_repo`, or None when the repo or the file does not exist yet (a first run)."""
     api = api or make_api()
