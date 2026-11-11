@@ -12,7 +12,7 @@ so prediction plus explanation stays near the 30 s target.
 | [Qwen/Qwen3-0.6B-Base](https://huggingface.co/Qwen/Qwen3-0.6B-Base) | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | Yes / Yes | No | not stated | 0.6B total, 0.44B non-embedding | 32,768 | Pretrained base. Vocab size not stated on card. |
 | [Qwen/Qwen3-1.7B-Base](https://huggingface.co/Qwen/Qwen3-1.7B-Base) | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | Yes / Yes | No (no gate shown) | not stated | 1.7B total, 1.4B non-embedding | 32,768 | Pretrained base. Vocab size not stated on card. |
 | [meta-llama/Llama-3.2-1B](https://huggingface.co/meta-llama/Llama-3.2-1B) | [Llama 3.2 Community License](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE) | Yes / Yes, with obligations | **Yes** (accept licence on HF) | "December 2023" | 1.23B | 128k | Pretrained base. Vocab size not stated on card. |
-| [google/gemma-3-1b-pt](https://huggingface.co/google/gemma-3-1b-pt) | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) | Yes / Yes, with obligations | **Yes** (accept conditions on HF) | not stated | 1.0B | 32K input | Pretrained (`-pt`). 2T training tokens. Vocab size not stated on card. |
+| [google/gemma-3-1b-pt](https://huggingface.co/google/gemma-3-1b-pt) | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) | Yes / Yes, with obligations | **Yes** (accept conditions on HF) | "August 2024" (Gemma 3 model card on ai.google.dev; not on the HF card) | 1.0B | 32K input | Pretrained (`-pt`). 2T training tokens. Vocab size not stated on card. |
 | [HuggingFaceTB/SmolLM2-1.7B](https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B) | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | Yes / Yes | No (no gate shown) | not stated | 1.7B | not stated | Base (not `-Instruct`). 11T tokens. |
 | [google/gemma-4-E2B](https://huggingface.co/google/gemma-4-E2B) (**conditional**) | [Apache 2.0, as linked from the card](https://ai.google.dev/gemma/docs/gemma_4_license) | Licence text allows both (unconfirmed for weights, see notes) | unconfirmed | "with a cutoff date of January 2025" | 2.3B effective, 5.1B with embeddings | 128K | Vocab 262K. Base vs instruct unconfirmed. Include only if licence and CPU time fit. |
 
@@ -37,8 +37,10 @@ so prediction plus explanation stays near the 30 s target.
   Release date: card says 2025 only. Terms allow modification and distribution; a public hosted Space counts as
   "Distribution". Obligations: pass the use restrictions (Prohibited Use Policy) on to users, give recipients a copy of the
   terms, mark modified files, Notice file for non-hosted distribution. Model derivatives (including models trained on its
-  outputs) fall under the same terms, so the published LoRA weights carry them. Cutoff not stated on this card (other Google
-  documents may state one; not checked).
+  outputs) fall under the same terms, so the published LoRA weights carry them. Cutoff: the HF card states none, but the official
+  [Gemma 3 model card](https://ai.google.dev/gemma/docs/core/model_card_3), Training Dataset section, says "The knowledge
+  cutoff date for the training data was August 2024." Checked 2026-11-11. The HF card links the Gemma 3 report at
+  https://goo.gle/Gemma3Report (not read). This family-level statement is assumed to cover the 1B-pt size.
 - **SmolLM2-1.7B.** Sources: [card](https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B). Paper published 2025-02-04; model
   release date not stated on the card. Card states 11T tokens (FineWeb-Edu, DCLM, The Stack, math and code) and no cutoff
   or context length (the paper may state them; not read).
