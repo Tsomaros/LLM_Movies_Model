@@ -81,3 +81,13 @@ def test_main_wires_ensure_and_fetch(tmp_path, monkeypatch):
 def test_has_file(tmp_path):
     hub = raw_hub(with_db=True)
     assert hub_store.has_file(REPO, "db/movies.db", api=hub) and not hub_store.has_file(REPO, "db/other", api=hub)
+    # a name that is only part of a stored path is not the file
+    assert not hub_store.has_file(REPO, "db/movies", api=hub) and not hub_store.has_file(REPO, "movies.db", api=hub)
+
+
+def test_has_file_is_false_for_a_repo_that_does_not_exist_yet(tmp_path):
+    hub = raw_hub(with_db=True)  # lists db/movies.db, but the repo is reported missing
+    hub.repo_exists = lambda repo_id, repo_type=None: False
+    assert hub_store.has_file(REPO, "db/movies.db", api=hub) is False
+    with pytest.raises(SystemExit, match="part A"):
+        db_snapshot.fetch(tmp_path / "movies.db", REPO, api=hub)

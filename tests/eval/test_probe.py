@@ -270,3 +270,24 @@ def test_load_director_films_by_quarter_caps_each_quarter_and_stays_in_range(tmp
     again = load_director_films_by_quarter(db, per_quarter=4, first=(2019, 1), last=(2020, 2), seed=3, min_votes=100)
     assert films.equals(again)
     assert load_director_films_by_quarter(db, per_quarter=10, first=(2019, 1), last=(2019, 1), seed=0)["tmdb_id"].nunique() == 6
+
+
+def test_load_director_films_by_quarter_keeps_quarters_of_different_years_apart_and_cuts_at_quarter_ends(tmp_path):
+    from llm_movies.eval.probe import load_director_films_by_quarter
+
+    db = _quarter_db(tmp_path / "q.db")
+    con = sqlite3.connect(db)
+    rows = [  # same calendar quarter in two years, and the last and first day of neighbouring quarters
+        (40, "Q1 2020 a", "2020-01-05", 2020, 1e8, 0, 0, 900, 7.0, "test"),
+        (41, "Q1 2020 b", "2020-03-31", 2020, 1e8, 0, 0, 900, 7.0, "test"),
+        (42, "Q2 2020 first day", "2020-04-01", 2020, 1e8, 0, 0, 900, 7.0, "test"),
+    ]
+    con.executemany("INSERT INTO movies VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
+    con.executemany("INSERT INTO credits VALUES (?,1,'director',0)", [(r[0],) for r in rows])
+    con.commit()
+    con.close()
+    films = load_director_films_by_quarter(db, per_quarter=1, first=(2019, 1), last=(2020, 1), seed=0)
+    ids = films["tmdb_id"].tolist()
+    # one film each from 2019Q1, 2019Q2 (film 30) and 2020Q1 (not one for "Q1" overall); 2020-04-01 is 2020Q2, outside the range
+    assert len(ids) == 3 and 42 not in ids and 30 in ids
+    assert sum(i in range(10, 16) for i in ids) == 1 and sum(i in (40, 41) for i in ids) == 1

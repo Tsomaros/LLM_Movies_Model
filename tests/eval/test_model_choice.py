@@ -177,6 +177,38 @@ def test_a_failing_model_is_recorded_without_the_token_and_the_run_goes_on(setup
     assert len(hub.commits) == 3
 
 
+def test_the_exact_token_is_scrubbed_even_when_it_does_not_look_like_an_hf_token(setup, monkeypatch):
+    # the hf_... pattern alone would miss a token of another shape
+    monkeypatch.setenv("HF_TOKEN", "plain-secret-value")
+
+    def leaky(model_id, device):
+        raise RuntimeError("rejected token plain-secret-value for the repo")
+
+    db, out, hub, _, _ = setup
+    run(db, out, REPO, ("x/y",), per_quarter=2, revenue_n=5, device="cpu", api=hub, load_generator=leaky)
+    entry = json.loads(hub.files["model_choice/summary.json"])["models"]["x/y"]
+    assert entry["status"] == "failed" and "rejected token" in entry["error"]
+    assert "plain-secret-value" not in json.dumps(entry) and "plain-secret-value" not in hub.files["model_choice/summary.md"].decode()
+
+
+def test_the_seed_picks_the_films_and_is_the_same_for_every_model(setup):
+    # 2019Q1 has 3 films and the cap is 2, so the seed decides which two are asked; both models must be asked the same two
+    seen = set()
+    for seed in range(8):
+        for model in (GOOD, OTHER):
+            setup[3].prompts.pop(model, None)
+        go(setup, seed=seed)
+        assert setup[3].prompts[GOOD] == setup[3].prompts[OTHER], seed
+        seen.add(frozenset(p for p in setup[3].prompts[GOOD] if "directed by" in p))  # the director films only
+    assert len(seen) > 1  # a hard-coded seed would give one fixed choice
+
+
+def test_a_model_not_in_this_run_keeps_its_entry_in_the_summary(setup):
+    go(setup, models=(GOOD,))
+    summary = go(setup, models=(OTHER,))
+    assert set(summary["models"]) == {GOOD, OTHER} and summary["models"][GOOD]["status"] == "ok"
+
+
 def test_a_probe_error_after_loading_is_a_failure_too(setup):
     def broken(model_id, device):
         def generate(prompts):
