@@ -161,7 +161,11 @@ def run(
         import torch
 
         if not torch.cuda.is_available():
-            raise SystemExit("No GPU found. Switch the runtime to a T4 GPU (or pass --device cpu to run on the CPU).")
+            raise SystemExit(
+                "No GPU found. Switch the runtime to a T4 GPU, and run the part B sync cell (CUDA torch). "
+                "The NVIDIA driver may also be too old for CUDA 13.2: check `nvidia-smi`. "
+                "(Pass --device cpu only for a deliberate CPU run.)"
+            )
         device = "cuda"
     load_generator = load_generator or (lambda model_id, dev: make_generator(model_id, dev))
     api = api or hub_store.make_api()

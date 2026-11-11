@@ -20,7 +20,7 @@
 - Decisions from 2026-11-10: outcome phrases in tagline and synopsis are masked in `render` (training and serving alike; dollar figures are not masked); `source_strength` is kept, randomly hidden in training, and tested in E5; leak check E4 drops `release_type`, `distributor`, `themes`.
 - Base weights frozen; LoRA rank 16, alpha 32, dropout 0.05, on all attention and MLP projection layers; head and LoRA in fp32; base in fp16 on CUDA, fp32 on CPU.
 - Checkpoints live in the private Hub model repo `Tsomaros/llm-movies-runs` under `runs/<run_name>/{best,last}/`; uploads go through `llm_movies.data.hub_store` (refuses public repos). `WANDB_API_KEY` set → log to W&B project `llm-movies`; unset → log to stdout and `metrics.jsonl` only.
-- Torch is not a core dependency: the optional extra `train` holds transformers, peft, accelerate, wandb; Kaggle/Colab use their preinstalled CUDA torch; tests and CI install CPU torch through the `dev` group.
+- Torch is not a core dependency: the optional extra `train` holds transformers, peft, accelerate, wandb; torch comes from one of two conflicting extras, `cpu` (PyTorch CPU index: tests, CI, the Windows venv, CPU notebooks) or `cu132` (PyTorch CUDA 13.2 index: GPU notebooks; the only CUDA build of torch 2.15 that still supports the T4). Always pair `train` with one of them (`uv sync --extra train --extra cpu|cu132`). (Changed 2026-11-11: the uv venv shadows the platform's preinstalled torch, so "use the preinstalled CUDA torch" gave CPU torch on a T4.)
 - Tests build a tiny random causal LM and tokenizer in memory (no downloads): every model test runs on CPU in seconds.
 - `CLAUDE.md` hard rules: code-reviewer after each task's code, test-auditor on each new test file.
 

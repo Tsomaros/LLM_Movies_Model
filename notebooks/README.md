@@ -141,11 +141,14 @@ never installs CUDA. `uv run` keeps the extras installed by the last `uv sync`, 
 
 1. **`10_model_choice.ipynb`, part A, on a CPU runtime, once.** Rebuilds `movies.db` from the raw shards and uploads it to the raw repo
    as `db/movies.db`. If the repo already holds it, the command says so and does nothing (no download, no build).
-2. **`10_model_choice.ipynb`, part B, on a T4 GPU runtime.** Change the runtime, run the Setup and Secrets cells again (the new machine
-   is empty), then the part B sync cell and the part B probe cell. It downloads `db/movies.db` only, then probes each model: director recall (150 films per release
-   quarter from 2019Q1 to 2026Q2, at least 100 votes) and revenue memorization (300 validation films), the same films for every model.
-   After **each** model it uploads that model's two CSVs and `summary.json` / `summary.md` to `model_choice/` in the raw repo. **To resume,
-   rerun part B**: a model already `ok` is skipped; a failed one is tried again. Without a GPU it stops with a message.
+2. **`10_model_choice.ipynb`, part B, on a T4 GPU runtime.** Change the runtime and run the Setup and Secrets cells again (the new
+   machine is empty). **Before the part B sync, run `!nvidia-smi` in a scratch cell. The top-right "CUDA Version" must be 13.2 or higher.
+   If it is lower, stop and report it; do not run the probes on the CPU.** Then run the part B sync cell and the part B probe cell. Do not
+   re-run the part A sync cell after part B's sync: `uv sync` is exact and would remove torch. The probe downloads `db/movies.db` only,
+   then probes each model: director recall (150 films per release quarter from 2019Q1 to 2026Q2, at least 100 votes) and revenue
+   memorization (300 validation films), the same films for every model. After **each** model it uploads that model's two CSVs and
+   `summary.json` / `summary.md` to `model_choice/` in the raw repo. **To resume, rerun part B**: a model already `ok` is skipped; a
+   failed one is tried again. Without a GPU it stops with a message.
 3. **`12_speed.ipynb` on a CPU runtime.** Times one forward pass (batch 13, 768 tokens, int8) per candidate, in the order of the list
    above, and prints one line per model. Nothing is uploaded; copy the numbers into `docs/model_choice.md`.
 
