@@ -1,6 +1,37 @@
 # Progress
 
 ## Now
+- 2026-11-11: **Validation question resolved (`val_sample`), and Phase 2 Task 12 Step 1 done (`compare_runs`).**
+  - **`TrainConfig.val_sample`** (positive int or null, default null). `base.yaml` sets **2000**, so every experiment
+    inherits it. `final.yaml` (Task 12 Step 4) will use null.
+  - **The sample** is `validation_sample(val_df, n, seed)` in `llm_movies/model/data.py`:
+    - drawn after sorting by tmdb_id, so the same seed gives the same films whatever the row order, and E1-E5 (all
+      seed 42) check on identical films;
+    - stratified so the share of films with revenue is kept (rounded).
+    - The split has 95,216 films, so each check should be about 50 times cheaper than the 9-10 min seen in the smoke
+      run.
+  - **`full_validation`:**
+    - When training ends, `train()` loads the best weights into the model it holds and scores them once on the whole
+      validation frame.
+    - It writes `full_validation` (`step`, `films`, `val_loss`, revenue and score metrics) and `stopped_reason` into
+      `best/state.json`, in a commit that replaces only that file.
+    - With no sample, the best check's own metrics are copied instead. That happens only when the check's recorded
+      `val_films` was the whole frame, so a run resumed under a changed `val_sample` is still scored for real.
+    - A rerun skips the pass when `full_validation` exists for the current best step. A session lost during the pass
+      redoes only that pass.
+    - The summary and the W&B summary carry it too. A NaN-stopped run that has a best still gets it.
+  - **`compare_runs`** (`python -m llm_movies.eval.compare_runs --runs a,b --out reports/experiments.md [--repo ...]`):
+    - one markdown row per run, with every metric column taken from `full_validation`;
+    - "check pinball" is the sample metric, shown for reference only;
+    - a run still training shows dashes instead of its sample numbers, and a missing run shows "no best checkpoint".
+  - **Reviews:**
+    - The code-reviewer's main point was the `val_films` guard, now added. A follow-up review found nothing new.
+    - The test-auditor added a stale-`full_validation` test and ran 5 mutants through monkeypatch. I ran the 2 inline
+      mutants it couldn't (no stale-step check; compare falling back to sample metrics), and both turn tests red.
+    - 1267 tests pass, ruff check is clean.
+  - **Unverified:** loading the best weights into a CUDA fp16 model at the end of a run is covered only by CPU tests.
+    On the first T4 run, check that `best/state.json` gets `full_validation`.
+  - Next: Task 12 Step 2, the owner's E1 runs on Kaggle (`e1_small`, `e1_large`).
 - 2026-11-11: **Phase 2 Task 11 Step 4 done: the T4 smoke run worked and resumed. Task 11 is complete.**
   - The owner ran `configs/train/smoke.yaml` on a T4.
   - All 9 of 9 steps finished, with validation at steps 2, 4, 6, 8 and 9.
@@ -290,8 +321,6 @@
   on the mini DB; no real Hugging Face push yet.
 
 ## Open questions
-- Validation scores the whole 2016-2018 split at every check (about 9-10 min on a T4, seen in the smoke run). Sample a fixed
-  validation subset for E1-E5 to save time, or keep the full split for stable comparisons? Decide before Task 12.
 - Possible outcome leaks to check before training (Phase 1 data report or Phase 2): `source_sitelinks` is today's count, so a hit film
   can raise its source's page count (try training with and without it); `release_type` comes from TMDB entries added after release,
   so "streaming-only" may mark films that flopped; `distributor` may list later rights holders; themes and keywords may hold outcome

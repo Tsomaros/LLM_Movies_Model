@@ -30,6 +30,7 @@ def test_extends_resolves_next_to_child(tmp_path):
 def test_repo_base_config_loads():
     cfg = load_train_config("configs/train/base.yaml")
     assert cfg.run_name == "base" and cfg.base_model and cfg.lora_r == 16 and cfg.max_len == 832  # Task 11 Step 1
+    assert cfg.val_sample == 2000  # early-stopping checks on a fixed 2000-film validation sample
 
 
 def test_unknown_key_raises(tmp_path):
@@ -44,6 +45,24 @@ def test_bad_drop_group_raises(tmp_path):
     p.write_text("run_name: x\nbase_model: m\ndrop_groups: [tagline, nonsense]\n", encoding="utf-8")
     with pytest.raises(ValueError, match="nonsense"):
         load_train_config(p)
+
+
+def test_val_sample_defaults_to_the_full_frame():
+    assert TrainConfig(run_name="x", base_model="m").val_sample is None
+
+
+@pytest.mark.parametrize("bad", [0, -5, 2.5, True, "2000"])
+def test_bad_val_sample_raises(bad):
+    with pytest.raises(ValueError, match="val_sample"):
+        TrainConfig(run_name="x", base_model="m", val_sample=bad)
+
+
+def test_val_sample_null_in_yaml_is_none(tmp_path):
+    p = tmp_path / "x.yaml"
+    p.write_text("run_name: x\nbase_model: m\nval_sample: null\n", encoding="utf-8")
+    assert load_train_config(p).val_sample is None
+    p.write_text("run_name: x\nbase_model: m\nval_sample: 300\n", encoding="utf-8")
+    assert load_train_config(p).val_sample == 300
 
 
 # ---- Task 11: the experiment configs in configs/train ----

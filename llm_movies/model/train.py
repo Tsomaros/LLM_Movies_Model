@@ -5,7 +5,11 @@
 Position is counted in optimizer steps: steps_per_epoch = ceil(ceil(N / batch_size) / grad_accum), a trailing partial
 accumulation still makes a step. A resumed run re-derives the epoch and the offset inside it from `state["step"]`, rebuilds
 that epoch's sampler from (seed, epoch) and skips the batches already trained on, so it equals an uninterrupted run. The
-validation metric is the pinball loss over the whole validation frame (scaled units) / 2; a lower one saves "best".
+validation metric is the pinball loss (scaled units) / 2 over the check frame: `validation_sample(val, cfg.val_sample,
+cfg.seed)`, a fixed revenue-stratified sample, or the whole validation frame when val_sample is null; a lower one saves
+"best". When training ends, the best checkpoint is scored once on the whole validation frame (copied from its check when
+that check's `val_films` was the whole frame) and written into best/state.json as `full_validation` (with `stopped_reason`); a rerun
+skips that when it is there for the current best step, so a session lost during it only redoes that pass.
 A non-finite loss skips the step (counted); 10 in a row stop the run with stopped_reason "nan". metrics.jsonl (in
 `out_dir`, default outputs/<run_name>/) gets one line per validation only (per-step train_loss and lr go to W&B); W&B is used only when WANDB_API_KEY is set.
 """
@@ -25,9 +29,17 @@ from torch.utils.data import DataLoader
 from llm_movies.data import hub_store
 from llm_movies.data.export import FILMS_FILE
 from llm_movies.eval.metrics import revenue_metrics, score_metrics
-from llm_movies.model.checkpoint import load_checkpoint, restore_training_state, resume_state, save_checkpoint
+from llm_movies.model.checkpoint import (
+    load_checkpoint,
+    load_weights_into,
+    read_state,
+    restore_training_state,
+    resume_state,
+    save_checkpoint,
+    save_state,
+)
 from llm_movies.model.config import TrainConfig, load_train_config
-from llm_movies.model.data import Collator, FilmDataset, TargetScaler, load_frames, revenue_sampler
+from llm_movies.model.data import Collator, FilmDataset, TargetScaler, load_frames, revenue_sampler, validation_sample
 from llm_movies.model.loss import pinball_loss
 from llm_movies.model.predictor import build_predictor
 
@@ -120,7 +132,7 @@ def train(
     if resumed:
         restore_training_state(cfg, api, optimizer=optimizer, grad_scaler=grad_scaler, lr_scheduler=scheduler)
 
-    val_set = FilmDataset(val_df, scaler, cfg, train=False)
+    val_set = FilmDataset(validation_sample(val_df, cfg.val_sample, cfg.seed), scaler, cfg, train=False)
     collate = Collator(tokenizer, cfg.max_len)
     wandb_run = None
     if os.environ.get("WANDB_API_KEY"):
@@ -133,7 +145,7 @@ def train(
 
     def validate():
         loss, metrics = evaluate(model, val_set, scaler, tokenizer, cfg, device)
-        state["metrics"] = {"val_loss": loss, **metrics}
+        state["metrics"], state["val_films"] = {"val_loss": loss, **metrics}, len(val_set)
         line = {"step": state["step"], "epoch": state["epoch"], "lr": scheduler.get_last_lr(), **state["metrics"]}
         with open(out_dir / "metrics.jsonl", "a", encoding="utf-8") as f:
             f.write(json.dumps(line) + "\n")
@@ -198,11 +210,27 @@ def train(
                 reason = "patience"
                 break
     reason = reason or "epochs"
+    full = None
+    best_state = read_state(cfg, "best", api) if state["best_step"] is not None else None
+    if best_state is not None:
+        full = best_state.get("full_validation")
+        if full is None or full.get("step") != best_state["step"]:
+            if best_state.get("val_films") == len(val_df):  # its check scored every validation film (not just this config's)
+                loss, metrics = best_state["best_metric"], best_state["best_metrics"]
+            else:
+                load_weights_into(model, cfg, "best", api)  # training is over: the held weights are not needed again
+                loss, metrics = evaluate(model, FilmDataset(val_df, scaler, cfg, train=False), scaler, tokenizer, cfg, device)
+            full = {"step": best_state["step"], "films": len(val_df), "val_loss": loss, **metrics}
+            save_state(cfg, "best", {**best_state, "full_validation": full, "stopped_reason": reason}, api)
+            if wandb_run is not None:
+                flat = {f"full_validation/{t}/{k}": v for t, m in metrics.items() for k, v in m.items()}
+                wandb_run.summary.update({"full_validation/val_loss": loss, **flat})
     if wandb_run is not None:
         wandb_run.finish()
     return {
         "best_metric": state["best_metric"], "best_step": state["best_step"], "stopped_reason": reason,
         "metrics": state["best_metrics"], "step": state["step"], "nan_steps": nan_steps, "error": error,
+        "full_validation": full,
     }
 
 

@@ -108,6 +108,13 @@ def _fetch(cfg: TrainConfig, kind: str, api, folder: Path) -> bool:
     return (folder / "state.json").is_file()
 
 
+def _load_weights(model: MoviePredictor, folder: Path) -> None:
+    result = set_peft_model_state_dict(model.lm, load_peft_weights(str(folder / "adapter"), device="cpu"))
+    if getattr(result, "unexpected_keys", None):
+        raise RuntimeError(f"adapter has keys the model does not: {result.unexpected_keys[:3]}")
+    model.head.load_state_dict(torch.load(folder / "head.pt", map_location="cpu", weights_only=True))
+
+
 def load_checkpoint(
     cfg: TrainConfig, kind: Kind, api=None, lm=None, device=None
 ) -> tuple[MoviePredictor, TargetScaler, dict] | None:
@@ -118,19 +125,39 @@ def load_checkpoint(
         if not _fetch(cfg, kind, api, folder):
             return None
         model = build_predictor(cfg, lm=lm, device=device)
-        result = set_peft_model_state_dict(model.lm, load_peft_weights(str(folder / "adapter"), device="cpu"))
-        if getattr(result, "unexpected_keys", None):
-            raise RuntimeError(f"adapter has keys the model does not: {result.unexpected_keys[:3]}")
-        model.head.load_state_dict(torch.load(folder / "head.pt", map_location="cpu", weights_only=True))
+        _load_weights(model, folder)
         scaler = TargetScaler.from_json((folder / "scaler.json").read_text(encoding="utf-8"))
         state = json.loads((folder / "state.json").read_text(encoding="utf-8"))
     return model, scaler, state
 
 
+def load_weights_into(model: MoviePredictor, cfg: TrainConfig, kind: Kind, api=None) -> dict | None:
+    """Overwrite `model`'s adapter and head weights with the saved checkpoint's, in place (an already built model, e.g.
+    the one train() holds); the checkpoint's state, or None when it is absent."""
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp) / "ck"
+        if not _fetch(cfg, kind, api, folder):
+            return None
+        _load_weights(model, folder)
+        return json.loads((folder / "state.json").read_text(encoding="utf-8"))
+
+
+def read_state(cfg: TrainConfig, kind: Kind, api=None) -> dict | None:
+    """The checkpoint's state.json alone, or None when it is absent."""
+    api = api or hub_store.make_api()
+    return hub_store.read_json(cfg.hub_repo, f"{_prefix(cfg, kind)}/state.json", api=api, repo_type="model")
+
+
+def save_state(cfg: TrainConfig, kind: Kind, state: dict, api=None) -> None:
+    """Replace only the checkpoint's state.json (one commit), e.g. to add the full-validation metrics to `best`."""
+    api = api or hub_store.make_api()
+    message = f"{cfg.run_name} {kind} state step {state.get('step')}"
+    hub_store.upload_files({f"{_prefix(cfg, kind)}/state.json": json.dumps(state).encode()}, cfg.hub_repo, api=api, message=message, repo_type="model")
+
+
 def resume_state(cfg: TrainConfig, api=None) -> dict | None:
     """The `last` state (step, epoch, best_metric, bad_checks, metrics), or None for a fresh run."""
-    api = api or hub_store.make_api()
-    return hub_store.read_json(cfg.hub_repo, f"{_prefix(cfg, 'last')}/state.json", api=api, repo_type="model")
+    return read_state(cfg, "last", api)
 
 
 def restore_training_state(cfg: TrainConfig, api=None, *, optimizer=None, grad_scaler=None, lr_scheduler=None) -> bool:

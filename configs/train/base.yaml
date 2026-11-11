@@ -4,3 +4,4 @@ run_name: base
 base_model: Qwen/Qwen3-0.6B-Base
 max_len: 832  # Task 11 Step 1: recommended_max_len (ceil(p99 / 64) * 64) with the Qwen3 tokenizer; p50 663, p99 829, max 924
 sample_frac: 0.3
+val_sample: 2000  # early-stopping checks on a fixed, revenue-stratified sample; the best is scored once on all validation films

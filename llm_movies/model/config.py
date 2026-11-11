@@ -25,6 +25,7 @@ class TrainConfig:
     hide_p: float = 0.3
     revenue_oversample: float = 1.5
     sample_frac: float = 1.0
+    val_sample: int | None = None  # films in the fixed early-stopping sample; None = the whole validation frame
     drop_groups: tuple[str, ...] = ()
     anonymize: bool = False
     seed: int = 42
@@ -37,6 +38,9 @@ class TrainConfig:
         bad = sorted(set(self.drop_groups) - set(HIDEABLE))
         if bad:
             raise ValueError(f"unknown drop_groups {bad}; expected names from HIDEABLE {HIDEABLE}")
+        n = self.val_sample
+        if n is not None and (isinstance(n, bool) or not isinstance(n, int) or n < 1):
+            raise ValueError(f"val_sample must be a positive whole number of films or null, got {n!r}")
 
 
 def _load_raw(path: Path, seen: tuple[Path, ...] = ()) -> dict:

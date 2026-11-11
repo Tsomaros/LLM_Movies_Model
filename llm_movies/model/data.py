@@ -41,6 +41,19 @@ def load_frames(path: Path, cfg) -> tuple[pd.DataFrame, pd.DataFrame]:
     return train.reset_index(drop=True), df[df["split"] == "validation"].reset_index(drop=True)
 
 
+def validation_sample(val_df: pd.DataFrame, n: int | None, seed: int) -> pd.DataFrame:
+    """A fixed sample of `n` validation films for the early-stopping checks, or the whole frame when `n` is None or not
+    smaller than it. Stratified on having revenue (its share is kept, rounded) and drawn after sorting by tmdb_id, so the
+    same seed gives the same films whatever the row order. A drawn sample comes back with whole rows, in tmdb_id order."""
+    if n is None or n >= len(val_df):
+        return val_df
+    df = val_df.sort_values("tmdb_id", kind="stable").reset_index(drop=True)
+    has = df["revenue_log"].notna()
+    n_rev = round(n * has.mean())  # n < len(df) keeps both draws within their stratum
+    parts = [df[has].sample(n=n_rev, random_state=seed), df[~has].sample(n=n - n_rev, random_state=seed)]
+    return pd.concat(parts).sort_values("tmdb_id", kind="stable").reset_index(drop=True)
+
+
 class TargetScaler:
     def __init__(self, mean: list[float], std: list[float]):
         self.mean, self.std = list(mean), list(std)

@@ -8,7 +8,7 @@ import torch
 
 from llm_movies.model import data as data_module
 from llm_movies.model.config import TrainConfig
-from llm_movies.model.data import Collator, FilmDataset, TargetScaler, load_frames, revenue_sampler
+from llm_movies.model.data import Collator, FilmDataset, TargetScaler, load_frames, revenue_sampler, validation_sample
 from llm_movies.prompt.render import NOT_GIVEN, RANDOM_HIDE, render
 from llm_movies.prompt.resolve import ResolvedFilm
 
@@ -319,3 +319,51 @@ def test_scaler_safe_for_all_null_and_constant_columns():
     t2 = s2.transform(near)[0]
     assert t2[:, 0].tolist() == [-1.0, 1.0]  # (1 - 2) / 1 and (3 - 2) / 1
     assert t2[:, 1].abs().max() < 1e-6  # dividing by 5e-11 instead would give +-1
+
+
+# ---- validation_sample: the fixed early-stopping sample ----
+
+
+def _val_frame(n=1000, every=5):
+    """n validation rows, tmdb_ids 1..n; every `every`-th film has revenue (20% by default)."""
+    return pd.DataFrame(
+        {"tmdb_id": range(1, n + 1), "revenue_log": [16.0 if i % every == 0 else None for i in range(n)], "score": [6.0] * n}
+    )
+
+
+def test_validation_sample_none_or_too_large_is_the_whole_frame():
+    df = _val_frame(50)
+    for n in (None, 50, 80):
+        assert validation_sample(df, n, seed=1)["tmdb_id"].tolist() == df["tmdb_id"].tolist()
+
+
+def test_validation_sample_size_and_revenue_share():
+    df = _val_frame(1000)  # 200 with revenue
+    out = validation_sample(df, 150, seed=1)
+    assert len(out) == 150 and out["tmdb_id"].is_unique and set(out["tmdb_id"]) <= set(df["tmdb_id"])
+    assert out["revenue_log"].notna().sum() == 30  # 20% of 150, exactly
+    odd = validation_sample(_val_frame(1000, every=3), 100, seed=1)  # 334 of 1000 with revenue
+    assert odd["revenue_log"].notna().sum() == 33  # round(100 * 0.334)
+
+
+def test_validation_sample_is_fixed_by_the_seed_not_the_row_order():
+    df = _val_frame(1000)
+    a = validation_sample(df, 120, seed=42)
+    b = validation_sample(df.sample(frac=1.0, random_state=0), 120, seed=42)
+    assert a["tmdb_id"].tolist() == b["tmdb_id"].tolist() == sorted(a["tmdb_id"])  # same films, in tmdb_id order
+    assert set(validation_sample(df, 120, seed=43)["tmdb_id"]) != set(a["tmdb_id"])
+
+
+def test_validation_sample_keeps_the_rows_whole():
+    df = _val_frame(200).assign(score=[float(i) for i in range(200)])
+    merged = validation_sample(df, 40, seed=5).merge(df, on="tmdb_id", suffixes=("", "_src"))
+    assert len(merged) == 40 and (merged["score"] == merged["score_src"]).all()
+
+
+def test_validation_sample_with_no_revenue_or_only_revenue():
+    none = _val_frame(100).assign(revenue_log=None)
+    out = validation_sample(none, 30, seed=2)
+    assert len(out) == 30 and out["revenue_log"].isna().all()
+    every = _val_frame(100, every=1)
+    out = validation_sample(every, 30, seed=2)
+    assert len(out) == 30 and out["revenue_log"].notna().all()

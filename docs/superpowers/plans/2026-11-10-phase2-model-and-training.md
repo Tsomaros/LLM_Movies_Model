@@ -194,8 +194,9 @@ Candidates: `Qwen/Qwen3-0.6B-Base`, `Qwen/Qwen3-1.7B-Base`, `meta-llama/Llama-3.
 **Files:** Create `llm_movies/eval/compare_runs.py`, `reports/experiments.md`; Test `tests/eval/test_compare_runs.py`
 
 **Interfaces:**
-- `compare(run_names: list[str], api=None) -> str` (markdown: one row per run from each `best/state.json`: validation pinball, revenue `mae_log`, `within_2x`, `coverage_80`, score `mae`, `coverage_80`, best step, stopped reason); CLI `python -m llm_movies.eval.compare_runs --runs a,b,... --out reports/experiments.md`.
-- [ ] **Step 1:** Failing test `test_compare_table_from_fake_states` → implement → PASS → commit `feat(eval): compare runs`.
+- **2026-11-11, validation:** checks use `val_sample` (2000 films in `base.yaml`, fixed and revenue-stratified, the same for every run with seed 42); at the end of each run the best checkpoint is scored once on the whole validation split and stored as `full_validation` in `best/state.json` (with `stopped_reason`). `final.yaml` uses `val_sample: null`. compare_runs reports the `full_validation` metrics; "check pinball" is the sample metric, for reference.
+- `compare(run_names: list[str], api=None, repo=...) -> str` (markdown: one row per run from each `best/state.json`: validation pinball, revenue `mae_log`, `within_2x`, `coverage_80`, score `mae`, `coverage_80`, best step, stopped reason); CLI `python -m llm_movies.eval.compare_runs --runs a,b,... --out reports/experiments.md`.
+- [x] **Step 1:** Failing test `test_compare_table_from_fake_states` → implement → PASS → commit `feat(eval): compare runs`.
 - [ ] **Step 2:** Run E1 (both sizes), then E2–E5 on the chosen size (Dimitris on Kaggle, several sessions).
 - [ ] **Step 3:** Write `reports/experiments.md` with the table and these pre-set decision rules:
   - E1: keep the larger model only if it improves revenue `mae_log` by ≥ 0.03 **or** score `mae` by ≥ 0.02 **and** its CPU time passes Task 10's limit (≤ 300 s for batch 13 at max_len 768).

@@ -13,7 +13,7 @@ from test_data import _film
 from llm_movies.model import train as train_module
 from llm_movies.model.checkpoint import load_checkpoint, resume_state
 from llm_movies.model.config import TrainConfig
-from llm_movies.model.data import FilmDataset, TargetScaler, load_frames
+from llm_movies.model.data import FilmDataset, TargetScaler, load_frames, validation_sample
 from llm_movies.model.predictor import build_predictor
 from llm_movies.model.train import evaluate, train
 
@@ -213,3 +213,132 @@ def test_a_good_step_resets_the_nan_counter(data_dir, tmp_path, base, tiny_token
     monkeypatch.setattr(train_module, "pinball_loss", fake)
     summary = _run(replace(CFG, epochs=10), data_dir, tmp_path, base, tiny_tokenizer, FakeHub())
     assert summary["stopped_reason"] == "epochs" and summary["step"] == 30 and summary["nan_steps"] == 15
+
+
+# ---- val_sample: early stopping on a fixed sample, the best scored once on the whole validation frame ----
+
+
+def _spy_evaluate(monkeypatch, fail_on_full=False):
+    """Record the size of every frame train() evaluates; with `fail_on_full`, the first whole-frame (16 films) call dies."""
+    real, calls = train_module.evaluate, []
+
+    def spy(model, dataset, *args, **kwargs):
+        calls.append(len(dataset))
+        if fail_on_full and len(dataset) == 16 and calls.count(16) == 1:
+            raise Killed
+        return real(model, dataset, *args, **kwargs)
+
+    monkeypatch.setattr(train_module, "evaluate", spy)
+    return calls
+
+
+def _best_state(hub):
+    return json.loads(hub.files["runs/t/best/state.json"])
+
+
+def test_checks_use_the_val_sample_and_the_best_is_scored_on_the_full_frame(data_dir, tmp_path, base, tiny_tokenizer, monkeypatch):
+    cfg = replace(CFG, val_sample=6, epochs=4, lr_head=0.02)  # 16 validation films; 4 checks
+    calls = _spy_evaluate(monkeypatch)
+    hub = FakeHub()
+    summary = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, hub)
+    assert calls == [6, 6, 6, 6, 16]  # every check on the sample, then the whole frame exactly once
+    state = _best_state(hub)
+    assert state["step"] < summary["step"]  # precondition: best is not the last weights, so scoring "last" would fail
+    full = state["full_validation"]
+    assert full["step"] == state["step"] == summary["best_step"] and full["films"] == 16
+    assert state["stopped_reason"] == summary["stopped_reason"] == "epochs"
+    model, scaler, _ = load_checkpoint(cfg, "best", api=hub, lm=copy.deepcopy(base))
+    _, val = load_frames(data_dir, cfg)
+    cpu = torch.device("cpu")
+    on_full = evaluate(model, FilmDataset(val, scaler, cfg, False), scaler, tiny_tokenizer, cfg, cpu)
+    sample = FilmDataset(validation_sample(val, 6, cfg.seed), scaler, cfg, False)
+    on_sample = evaluate(model, sample, scaler, tiny_tokenizer, cfg, cpu)
+    assert full["val_loss"] == pytest.approx(on_full[0], abs=1e-5)
+    assert full["revenue"]["mae_log"] == pytest.approx(on_full[1]["revenue"]["mae_log"], abs=1e-5)
+    assert full["score"]["mae"] == pytest.approx(on_full[1]["score"]["mae"], abs=1e-5)
+    assert state["best_metric"] == pytest.approx(on_sample[0], abs=1e-5)  # the checks used that very sample
+    assert abs(full["val_loss"] - state["best_metric"]) > 1e-4  # precondition: sample and whole frame differ
+    assert summary["full_validation"] == full
+    assert [x["step"] for x in _lines(tmp_path / "out" / "metrics.jsonl")] == [3, 6, 9, 12]  # checks only
+
+
+def test_without_val_sample_the_best_check_is_the_full_validation(data_dir, tmp_path, base, tiny_tokenizer, monkeypatch):
+    calls = _spy_evaluate(monkeypatch)
+    hub = FakeHub()
+    summary = _run(CFG, data_dir, tmp_path, base, tiny_tokenizer, hub)
+    assert calls == [16, 16, 16]  # no extra pass: the checks already scored the whole frame
+    state = _best_state(hub)
+    assert state["full_validation"] == {
+        "step": state["step"], "films": 16, "val_loss": state["best_metric"], **state["best_metrics"]
+    }
+    assert summary["full_validation"] == state["full_validation"] and state["stopped_reason"] == "epochs"
+
+
+def test_rerun_of_a_finished_run_does_not_score_again(data_dir, tmp_path, base, tiny_tokenizer, monkeypatch):
+    cfg = replace(CFG, val_sample=6)
+    hub = FakeHub()
+    first = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, hub)
+    commits, stored = len(hub.commits), _best_state(hub)
+    calls = _spy_evaluate(monkeypatch)
+    again = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, hub, "again")
+    assert calls == [] and len(hub.commits) == commits and _best_state(hub) == stored
+    assert again["full_validation"] == first["full_validation"] == stored["full_validation"]
+
+
+def test_a_full_validation_of_an_older_best_is_scored_again(data_dir, tmp_path, base, tiny_tokenizer, monkeypatch):
+    cfg = replace(CFG, val_sample=6)
+    hub = FakeHub()
+    first = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, hub)
+    stale = _best_state(hub)
+    stale["full_validation"] = {**stale["full_validation"], "step": stale["step"] - 1, "val_loss": 123.0}  # an earlier best's score
+    hub.files["runs/t/best/state.json"] = json.dumps(stale).encode()
+    calls = _spy_evaluate(monkeypatch)
+    again = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, hub, "again")
+    assert calls == [16]  # the stored score belongs to another step: scored once more
+    assert again["full_validation"]["step"] == stale["step"] and again["full_validation"]["val_loss"] != 123.0
+    assert again["full_validation"] == first["full_validation"] == _best_state(hub)["full_validation"]
+
+
+def test_a_session_lost_during_full_validation_scores_it_on_the_rerun(data_dir, tmp_path, base, tiny_tokenizer, monkeypatch):
+    cfg = replace(CFG, val_sample=6)
+    calls = _spy_evaluate(monkeypatch, fail_on_full=True)
+    hub = FakeHub()
+    with pytest.raises(Killed):
+        _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, hub)
+    assert "full_validation" not in _best_state(hub) and calls == [6, 6, 6, 16]
+    summary = _run(cfg, data_dir, tmp_path, base, tiny_tokenizer, hub, "again")
+    assert calls == [6, 6, 6, 16, 16]  # training was finished: only the full pass runs again
+    assert _best_state(hub)["full_validation"]["films"] == 16 and summary["full_validation"]["step"] == summary["best_step"]
+
+
+def test_a_best_checked_on_a_sample_is_scored_even_if_the_config_now_checks_everything(data_dir, tmp_path, base, tiny_tokenizer, monkeypatch):
+    sampled = replace(CFG, val_sample=6)
+    hub = FakeHub()
+    _run(sampled, data_dir, tmp_path, base, tiny_tokenizer, hub)
+    lost = _best_state(hub)
+    assert lost["val_films"] == 6  # the best check scored the 6-film sample
+    del lost["full_validation"]  # as if the session died before the full pass
+    hub.files["runs/t/best/state.json"] = json.dumps(lost).encode()
+    calls = _spy_evaluate(monkeypatch)
+    again = _run(CFG, data_dir, tmp_path, base, tiny_tokenizer, hub, "again")  # resumed with val_sample null (a config edit)
+    assert calls == [16]  # a real pass: the sample's metrics are never copied as full ones
+    assert again["full_validation"]["val_loss"] != pytest.approx(lost["best_metric"], abs=1e-6)
+
+
+def test_a_nan_stopped_run_with_a_best_still_gets_full_validation(data_dir, tmp_path, base, tiny_tokenizer, monkeypatch):
+    real, seen = train_module.pinball_loss, {"n": 0}
+
+    def fake(pred, target, mask, weight):  # training is fine for 3 steps (one check, a best), then NaN for good
+        loss = real(pred, target, mask, weight)
+        if pred.requires_grad:
+            seen["n"] += 1
+            if seen["n"] > 5:  # 3 steps = 5 micro-batches
+                return loss * float("nan")
+        return loss
+
+    monkeypatch.setattr(train_module, "pinball_loss", fake)
+    hub = FakeHub()
+    summary = _run(replace(CFG, val_sample=6, epochs=10), data_dir, tmp_path, base, tiny_tokenizer, hub)
+    assert summary["stopped_reason"] == "nan" and summary["error"] and summary["best_step"] == 3
+    state = _best_state(hub)
+    assert state["stopped_reason"] == "nan" and state["full_validation"]["step"] == 3 and state["full_validation"]["films"] == 16
