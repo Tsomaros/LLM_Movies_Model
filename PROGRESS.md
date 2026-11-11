@@ -1,6 +1,21 @@
 # Progress
 
 ## Now
+- 2026-11-11: **Phase 2 Task 11 Step 4 done: the T4 smoke run worked and resumed. Task 11 is complete.**
+  - The owner ran `configs/train/smoke.yaml` on a T4.
+  - All 9 of 9 steps finished, with validation at steps 2, 4, 6, 8 and 9.
+  - Validation loss fell at every check (final 0.355), so `best` moved each time.
+  - `best` and `last` are at `runs/smoke/{best,last}/` in `Tsomaros/llm-movies-runs`. The earlier note saying
+    `smoke/` was wrong: `checkpoint.py` saves under `runs/<run_name>/`.
+  - `last` holds the optimizer, scheduler, GradScaler and RNG states.
+  - **Resume:** the owner restarted the runtime after step 2. The Hub commits then go step 2 once, then 4, 6, 8, 9. A
+    fresh start would have saved step 2 again, so the run resumed from `last`.
+  - Step-9 metrics only show the code runs end to end: revenue mae_log 3.67, 80% coverage 0.73 at a p10-p90 width of
+    about 87,000×; score mae 0.87, coverage 0.85.
+  - **Validation is slow.** Each check takes about 9-10 min, because `load_frames` doesn't sample the validation split
+    and every check scores all of 2016-2018. For `base` (about 270 steps, 4 checks) that adds roughly 40 min per run.
+    Open question before E1-E5: validate on a fixed sample?
+  - Next: Task 12, only when the owner asks.
 - 2026-11-11: **Phase 2 Task 11 Steps 1-3 done. Step 4, the T4 smoke run, is the owner's.**
   - **Step 1, token lengths** (Qwen3-0.6B-Base tokenizer, open-split films, nothing hidden): p50 663, p90 759,
     p99 829, max 924.
@@ -275,6 +290,8 @@
   on the mini DB; no real Hugging Face push yet.
 
 ## Open questions
+- Validation scores the whole 2016-2018 split at every check (about 9-10 min on a T4, seen in the smoke run). Sample a fixed
+  validation subset for E1-E5 to save time, or keep the full split for stable comparisons? Decide before Task 12.
 - Possible outcome leaks to check before training (Phase 1 data report or Phase 2): `source_sitelinks` is today's count, so a hit film
   can raise its source's page count (try training with and without it); `release_type` comes from TMDB entries added after release,
   so "streaming-only" may mark films that flopped; `distributor` may list later rights holders; themes and keywords may hold outcome
