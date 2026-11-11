@@ -10,7 +10,7 @@ from llm_movies.config import DataConfig, load_config
 def test_defaults_match_spec():
     c = load_config(Path("config/data.yaml"))
     assert (c.train_max_year, c.calibration_years, c.validation_years, c.test_from_year) == (2013, (2014, 2015), (2016, 2018), 2019)
-    assert c.base_model_cutoff is None and c.min_votes == 50 and c.mature_days == 182 and c.shrink_films == 4
+    assert c.base_model_cutoff == date(2025, 4, 29) and c.min_votes == 50 and c.mature_days == 182 and c.shrink_films == 4
 
 
 def test_chunk_size_is_5000():
@@ -26,7 +26,8 @@ def test_dataclass_defaults_match_brief():
 
 
 def test_yaml_and_dataclass_defaults_agree():
-    assert load_config(Path("config/data.yaml")) == DataConfig()
+    # the yaml sets the chosen base model's cutoff (Task 10: Qwen3 release date); the code default stays None (no cutoff known)
+    assert load_config(Path("config/data.yaml")) == dataclasses.replace(DataConfig(), base_model_cutoff=date(2025, 4, 29))
 
 
 def test_config_is_frozen():
@@ -46,7 +47,9 @@ def test_year_ranges_are_tuples_and_ordered():
 
 def test_cutoff_parses_as_date(tmp_path):
     p = tmp_path / "d.yaml"
-    p.write_text(Path("config/data.yaml").read_text().replace("base_model_cutoff: null", "base_model_cutoff: 2024-06-30"))
+    text = Path("config/data.yaml").read_text()
+    assert "base_model_cutoff: 2025-04-29" in text
+    p.write_text(text.replace("base_model_cutoff: 2025-04-29", "base_model_cutoff: 2024-06-30"))
     assert load_config(p).base_model_cutoff == date(2024, 6, 30)
 
 

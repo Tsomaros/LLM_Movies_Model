@@ -1,2 +1,2 @@
 run_name: base
-base_model: Qwen/Qwen3-0.6B  # placeholder; Tasks 10/11 finalise it
+base_model: Qwen/Qwen3-0.6B-Base  # Task 10 choice (E1 small); Task 11 finalises the rest

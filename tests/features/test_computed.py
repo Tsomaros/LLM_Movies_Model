@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_movies.config import DataConfig
+from llm_movies.config import DataConfig, load_config
 from llm_movies.data.build_db import _SCHEMA, build_db
 from llm_movies.features.computed import (
     Context,
@@ -349,7 +349,8 @@ def test_context_works_after_the_connection_closes():
 
 def test_context_default_config_is_loaded():
     ctx = Context.from_db(make_db([movie(1, "2000-01-01")]))
-    assert ctx.history.cfg == CFG
+    assert ctx.history.cfg == load_config(Path("config/data.yaml"))
+    assert ctx.history.cfg.base_model_cutoff == date(2025, 4, 29)  # the yaml, not the code default (None)
 
 
 def test_empty_database_never_raises():

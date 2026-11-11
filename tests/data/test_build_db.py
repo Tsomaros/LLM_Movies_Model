@@ -427,7 +427,7 @@ def test_movies_columns(tmp_path):
 
 
 def test_movies_split_filled(tmp_path):
-    out, _ = build(tmp_path)  # the default config: train <= 2013, calibration 2014-15, validation 2016-18, test 2019+
+    out, _ = build(tmp_path)  # config/data.yaml: train <= 2013, calibration 2014-15, validation 2016-18, test 2019 to the cutoff
     assert rows(out, "SELECT COUNT(*) FROM movies WHERE split IS NULL") == [(0,)]
     splits = dict(rows(out, "SELECT tmdb_id, split FROM movies"))
     assert splits[77] == "train"  # Memento, 2000
@@ -438,7 +438,8 @@ def test_movies_split_filled(tmp_path):
     assert splits[374720] == "validation"  # Dunkirk, 2017
     assert splits[475557] == "test"  # Joker, 2019
     assert splits[577922] == "test"  # Tenet, 2020
-    assert splits[1003598] == "test"  # Avengers: Secret Wars, 2027 (no cutoff configured)
+    assert splits[872585] == "test"  # Oppenheimer, 2023-07-19: before the 2025-04-29 cutoff
+    assert splits[1003598] == "later"  # Avengers: Secret Wars, 2027: after the cutoff, not yet released
 
 
 def test_movies_split_uses_given_config_and_pulled_at(tmp_path):

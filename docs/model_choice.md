@@ -2,8 +2,8 @@
 
 Purpose: Task 10 of Phase 2. Pick one model family and two sizes as the base for the LoRA + quantile-head predictor
 (pretrained base checkpoints, not instruct). Rules: the training cutoff we use is the **later** of the stated and the
-empirical cutoff (so the leak-safe holdout starts after it); the smaller E1 model must run batch 13 in **<= 20 s on CPU**
-so prediction plus explanation stays near the 30 s target.
+empirical cutoff (so the leak-safe holdout starts after it); the CPU limit for batch 13 was first **<= 20 s** and was
+relaxed to **<= 300 s** in Step 4, because no candidate came close to 20 s.
 
 ## Step 1: model cards
 
@@ -63,8 +63,8 @@ Runs of 2026-11-11.
 
 | Model | Stated cutoff | Empirical cutoff | Director recall 2019-20 | Revenue known % | CPU seconds (batch 13, max_len 768) | Cutoff used |
 |---|---|---|---|---|---|---|
-| Qwen3-0.6B-Base | not stated (Qwen3 released 2025-04-29) | not informative (2025-12-31 computed) | 0.006 | 9.7% | 100.5 | pending decision |
-| Qwen3-1.7B-Base | not stated (Qwen3 released 2025-04-29) | not informative (2026-06-30 computed) | 0.022 | 12.3% | 249.3 | pending decision |
+| Qwen3-0.6B-Base | not stated (Qwen3 released 2025-04-29) | not informative (2025-12-31 computed) | 0.006 | 9.7% | 100.5 | **2025-04-29** (release date) |
+| Qwen3-1.7B-Base | not stated (Qwen3 released 2025-04-29) | not informative (2026-06-30 computed) | 0.022 | 12.3% | 249.3 | **2025-04-29** (release date) |
 | Llama-3.2-1B | December 2023 | 2022-12-31 | 0.190 | 23.0% | 163.0 | 2023-12-31 |
 | gemma-3-1b-pt | August 2024 | invalid run | invalid run (0.000) | invalid run (0.0%) | 137.5 | 2024-08-31 |
 | SmolLM2-1.7B | not stated | 2022-06-30 | 0.089 | 14.3% | 271.1 | 2022-06-30 |
@@ -103,6 +103,19 @@ What the numbers mean:
   could leak into the test set. That favours Qwen.
 - **One family, two sizes.** Among the measured models, only Qwen3 (0.6B and 1.7B) gives one family with two sizes.
 
-## Step 4: decision
+## Step 4: decision (Dimitris, 2026-11-11)
 
-Pending: decided with Dimitris after the measurements.
+- **Family and sizes:** Qwen3, `Qwen/Qwen3-0.6B-Base` (E1 small, the base config) and `Qwen/Qwen3-1.7B-Base` (E1 large).
+  - It is the only measured family with two sizes.
+  - It memorizes the fewest 2019+ films, so the least leaks into the test set.
+  - It is the fastest, Apache 2.0 and not gated.
+- **Cutoff:** `base_model_cutoff: 2025-04-29`, the public release date of Qwen3.
+  - Qwen3 states no cutoff, and its empirical cutoffs are noise. Training data can't be newer than the release, so the
+    holdout (films from 2025-04-30 on) is clean.
+  - Films between the real data cutoff and that date fall into test. That is the conservative direction.
+  - This replaces the "later of stated and empirical" rule for Qwen only.
+- **CPU rule:** batch 13 at max_len 768 in **<= 300 s** on CPU, up from 20 s.
+  - Both sizes pass as measured (100 s and 249 s on 1 thread).
+  - So E1 (Task 12) picks between the sizes on accuracy alone.
+  - Expect a Space answer with explanations to take about 2 to 5 minutes.
+- **Gemma 3:** its probe run stays invalid and is not rerun, because it is not the chosen family.

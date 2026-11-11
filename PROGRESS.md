@@ -1,6 +1,24 @@
 # Progress
 
 ## Now
+- 2026-11-11: **Task 10 Step 4 decided; Step 5's code part done. Waiting on the Colab rebuild.**
+  - Decisions (Dimitris):
+    - Qwen3: `Qwen/Qwen3-0.6B-Base` (base config, E1 small) and `Qwen/Qwen3-1.7B-Base` (E1 large).
+    - `base_model_cutoff: 2025-04-29`, Qwen3's release date: Qwen3 states no cutoff and the probes were noise.
+    - CPU rule relaxed to batch 13 in ≤ 300 s, which both sizes pass. Also written into the E1 rule in Task 12.
+    - Gemma 3 is not rerun.
+  - Code and tests:
+    - `config/data.yaml` sets the cutoff. `DataConfig`'s code default stays None.
+    - Updated tests: `tests/test_config.py`, `tests/data/test_build_db.py` (Oppenheimer is now test, Secret Wars later)
+      and `tests/features/test_computed.py`.
+    - `configs/train/base.yaml` uses the `-Base` id.
+    - 1187 tests pass and ruff is clean. code-reviewer approved, on Windows.
+  - **Next (owner, Colab CPU):** rerun `notebooks/03_build_and_export.ipynb` with no re-pull, so the Hub data gets the
+    new splits.
+    - The old build has holdout 0, and `export` stops on a split mismatch.
+    - Check that `reports/data_summary.md` shows holdout > 0 and test < 367,451. The reviewer estimates holdout covers
+      about 2025-04-30 to 2026-05-06.
+    - Then commit `data: base model chosen, cutoff set, holdout built` with the report, tick Step 5, and start Task 11.
 - 2026-11-11: **Phase 2 Task 10 Steps 2-3 done: the Colab probe and speed results are in `docs/model_choice.md`.**
   Step 4, the decision, is open; Step 5 waits for it.
   - Findings:
@@ -114,7 +132,7 @@
   head, fp16 base + gradient checkpointing on CUDA only) and `trainable_parameters`. Pooling runs the PEFT-wrapped decoder
   (`get_base_model().get_decoder()`, last hidden state at `attention_mask.sum(1) - 1`) instead of the full LM with
   `output_hidden_states`, so no vocab-size logits are computed; a test proves gradients reach every LoRA B. `configs/train/base.yaml`
-  holds `run_name: base` and a placeholder `base_model: Qwen/Qwen3-0.6B` (Task 10/11 finalise it). Config tests are in
+  holds `run_name: base` and `base_model: Qwen/Qwen3-0.6B-Base` (chosen in Task 10; Task 11 finalises the rest). Config tests are in
   `tests/model/test_train_config.py` (name clash with `tests/test_config.py`). 1002 tests pass, ruff clean; code-reviewer (spec ✅,
   approved) and test-auditor (it tightened the truncation test with a padded mixed batch) run on Windows. Next: Task 5.
   For Task 5: pooling assumes right padding; the tokenizer/Collator must force `padding_side="right"` (Qwen may default left) and test
@@ -170,7 +188,7 @@
 - 2026-11-08: Task 15 Step 2 done: the 500-film sample went through notebooks 01, 02 and 03 in Colab (export pushed, report written; 01 took under a minute). It held 499 train and 1 calibration film, so real locked films are still unexercised until the full run.
 - 2026-11-10: Task 15 Step 4 done: the owner ran the full pull (5 chunks took 16 min, about 26 films/s), full Wikidata (no
   pruning) and notebook 03 in Colab; report copied to `reports/data_summary.md`. 1,081,349 films: train 565,901, calibration
-  52,781, validation 95,216, test 367,451, holdout 0 (`base_model_cutoff` is unset, so every film from 2019 on is test until
+  52,781, validation 95,216, test 367,451, holdout 0 (old build: `base_model_cutoff` was unset then; it is now 2025-04-29 and notebook 03 must rebuild, so every film from 2019 on is test until
   Phase 2 picks the base model and sets it, which needs a rebuild). Open-split dataset: 34,354 films (17,312 with revenue,
   28,907 with score at min_votes 50). The Hub manifest was not checked from here; the owner reported the run complete.
 - 2026-11-10: Task 15 Step 5: the owner kept `min_votes` at 50 (28,907 score films; 20 would give 53,217 with noisier scores,
@@ -225,7 +243,7 @@
 
 ## Notes
 - Reviews run on the cloud side are marked "(cloud review, no hooks)".
-- `tests/test_config.py` pins `config/data.yaml` to the defaults (`min_votes` 50, `base_model_cutoff` null). Changing either
+- `tests/test_config.py` pins `config/data.yaml` to the defaults (`min_votes` 50; `base_model_cutoff` 2025-04-29 in the yaml, None as the code default). Changing either
   value (Task 15 Step 5, Phase 2) turns `test_defaults_match_spec` and `test_yaml_and_dataclass_defaults_agree` red, so those
   tests must change with the decision.
 - Layout decisions in Task 1: flat `llm_movies/` at the repo root (`module-root = ""`), `requires-python = ">=3.11,<3.12"`,

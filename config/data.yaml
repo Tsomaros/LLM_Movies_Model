@@ -2,7 +2,7 @@ train_max_year: 2013
 calibration_years: [2014, 2015]
 validation_years: [2016, 2018]
 test_from_year: 2019
-base_model_cutoff: null
+base_model_cutoff: 2025-04-29  # Qwen3 release date (no stated cutoff; probes uninformative): docs/model_choice.md
 min_votes: 50
 chunk_size: 5000
 mature_days: 182
