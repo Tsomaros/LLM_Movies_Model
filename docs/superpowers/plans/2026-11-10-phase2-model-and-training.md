@@ -178,7 +178,7 @@ Candidates: `Qwen/Qwen3-0.6B-Base`, `Qwen/Qwen3-1.7B-Base`, `meta-llama/Llama-3.
 - [x] **Step 2:** Colab T4 (`10_model_choice`): `director_probe` on 150 films per quarter 2019Q1–2026Q2 (films with ≥100 votes) and `revenue_probe` on 300 validation films, per candidate → `empirical_cutoff` and memorization rate. Colab CPU runtime (`12_speed`): `cpu_forward_seconds` at `max_len` 768.
 - [x] **Step 3:** Fill the table in `docs/model_choice.md`: licence · stated cutoff · empirical cutoff · director recall 2019–20 · revenue known % · CPU seconds (batch 13). Rule for the cutoff used: the later of stated and empirical.
 - [x] **Step 4: Decision with Dimitris:** one family and two sizes for E1 (the smaller must run batch 13 in ≤ 20 s on CPU so prediction + explanation stays near the 30 s target; **relaxed to ≤ 300 s on 2026-11-11**, see `docs/model_choice.md`). Record it in `docs/model_choice.md` and `PROGRESS.md`.
-- [ ] **Step 5:** Set `base_model_cutoff` in `config/data.yaml` to the chosen family's cutoff; update `tests/test_config.py` to the new value; rebuild and export in Colab (`03_build_and_export`, no re-pull); check the report shows a non-zero holdout. Commit `data: base model chosen, cutoff set, holdout built`.
+- [x] **Step 5:** Set `base_model_cutoff` in `config/data.yaml` to the chosen family's cutoff; update `tests/test_config.py` to the new value; rebuild and export in Colab (`03_build_and_export`, no re-pull); check the report shows a non-zero holdout. Commit `data: base model chosen, cutoff set, holdout built`.
 
 ### Task 11: Token lengths and launchers
 

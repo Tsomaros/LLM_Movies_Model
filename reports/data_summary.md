@@ -9,9 +9,9 @@ Counts from the database; all splits.
 | train | 565901 |
 | calibration | 52781 |
 | validation | 95216 |
-| test | 367451 |
-| holdout | 0 |
-| later | 0 |
+| test | 281690 |
+| holdout | 57017 |
+| later | 28744 |
 
 ## Open splits only
 

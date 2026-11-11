@@ -1,6 +1,11 @@
 # Progress
 
 ## Now
+- 2026-11-11: **Phase 2 Task 10 done.** The owner reran notebook 03 (no re-pull) with `base_model_cutoff` 2025-04-29.
+  - `reports/data_summary.md` now shows test 281,690, holdout 57,017 and later 28,744. These add up to the old test count
+    of 367,451.
+  - The open splits are unchanged.
+  - **Task 11 waits for the owner's go-ahead.**
 - 2026-11-11: **Task 10 Step 4 decided; Step 5's code part done. Waiting on the Colab rebuild.**
   - Decisions (Dimitris):
     - Qwen3: `Qwen/Qwen3-0.6B-Base` (base config, E1 small) and `Qwen/Qwen3-1.7B-Base` (E1 large).
