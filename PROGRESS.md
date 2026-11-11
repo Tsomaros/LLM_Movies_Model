@@ -1,6 +1,13 @@
 # Progress
 
 ## Now
+- 2026-11-11: **Hotfix 2: notebook 12 was killed on Colab's CPU runtime (most likely out of memory).** `cpu_forward_seconds` ran
+  the full CausalLM, so it also computed 13 × 768 × vocab logits (~6 GB for Qwen) next to an fp32 model and a second int8 copy.
+  It now times only the decoder (`get_decoder()`, `last_hidden_state`, `use_cache=False`), the same path as `MoviePredictor`
+  (serving never computes logits), loads with `dtype=float32, low_cpu_mem_usage=True` and quantizes in place when loading by id.
+  `torch_dtype=` → `dtype=` in speed and probe. Gemma 4 E2B (~20 GB in fp32) will likely still not fit in 12 GB. 1186 tests pass,
+  ruff clean; code-reviewer (approved) and test-auditor run on Windows. Deferred: README wording on the lm_head (tied embeddings
+  free nothing) and the notebook-12 FLOP estimate is now an upper bound.
 - 2026-11-11: **Hotfix after the first Colab run of notebook 10 part B ("No GPU found" on a T4).** `uv sync --frozen` installed the
   dev group's CPU torch and no `train` extra, so the uv venv hid the T4. Torch is now two conflicting extras: `cpu` (CPU index)
   and `cu132` (CUDA 13.2 index; torch 2.15.0 has CUDA wheels only for cu132/cu134, and 13.2 still supports the T4's sm_75).

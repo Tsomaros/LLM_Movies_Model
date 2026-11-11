@@ -243,6 +243,31 @@ def test_make_generator_left_pads_and_returns_only_new_text(tiny_lm, tiny_tokeni
     assert all(len(tiny_tokenizer(t)["input_ids"]) <= 4 for t in together)
 
 
+@pytest.mark.parametrize("device, expected", [("cpu", "float32"), ("cuda", "float16")])
+def test_make_generator_by_id_loads_with_dtype_not_torch_dtype(tiny_tokenizer, monkeypatch, device, expected):
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    seen = {}
+
+    class Stub:  # only moving to the device and eval() happen before generating
+        def to(self, d):
+            return self
+
+        def eval(self):
+            return self
+
+    def fake_model(model_id, **kwargs):
+        seen["id"], seen["kwargs"] = model_id, kwargs
+        return Stub()
+
+    monkeypatch.setattr(AutoModelForCausalLM, "from_pretrained", fake_model)
+    monkeypatch.setattr(AutoTokenizer, "from_pretrained", lambda model_id, **kw: copy.deepcopy(tiny_tokenizer))
+    make_generator("some/model", device)
+    assert seen["id"] == "some/model"
+    assert seen["kwargs"] == {"dtype": getattr(torch, expected)}  # `dtype=`, never the deprecated `torch_dtype=`
+
+
 def _quarter_db(path):
     db = _mini_db(path)
     con = sqlite3.connect(db)

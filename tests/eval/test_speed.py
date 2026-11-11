@@ -72,3 +72,27 @@ def test_speed_loads_by_id_with_dtype_not_torch_dtype(tiny_lm, monkeypatch):
     assert seen["kwargs"]["dtype"] is torch.float32
     assert seen["kwargs"]["low_cpu_mem_usage"] is True
     assert "torch_dtype" not in seen["kwargs"]
+
+
+def test_speed_by_id_quantizes_the_decoder_in_place(tiny_lm, monkeypatch):
+    from transformers import AutoModelForCausalLM
+
+    monkeypatch.setattr(AutoModelForCausalLM, "from_pretrained", lambda model_id, **kw: tiny_lm)
+    decoder = tiny_lm.model
+    calls, inplace_flags, targets = [], [], []
+    real = torch.ao.quantization.quantize_dynamic
+
+    def spy(model, specs, dtype, inplace=False):
+        inplace_flags.append(inplace)
+        targets.append(model)
+        return real(model, specs, dtype=dtype, inplace=inplace)
+
+    monkeypatch.setattr(torch.ao.quantization, "quantize_dynamic", spy)
+    _record_shapes(decoder, calls)
+    assert cpu_forward_seconds("some/model", max_len=8, batch=2, int8=True) > 0
+    assert inplace_flags == [True]  # a model loaded here is quantized in place: no second fp32 copy
+    assert targets == [decoder]  # the timed module is the decoder, not the full CausalLM
+    assert not [m for m in decoder.modules() if type(m) is torch.nn.Linear]  # no fp32 Linear left in the timed module
+    # 2 layers x (q, k, v, o, gate, up, down) = 14 int8 Linear layers
+    assert sum(isinstance(m, torch.ao.nn.quantized.dynamic.Linear) for m in decoder.modules()) == 14
+    assert calls == [(2, 8)] * 6
