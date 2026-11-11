@@ -163,7 +163,7 @@ def make_generator(
     if isinstance(model_id, str):
         tokenizer = AutoTokenizer.from_pretrained(model_id)
         dtype = torch.float16 if device.startswith("cuda") else torch.float32
-        model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=dtype)
+        model = AutoModelForCausalLM.from_pretrained(model_id, dtype=dtype)
     else:
         model, tokenizer = model_id
         tokenizer = copy.deepcopy(tokenizer)  # padding side and pad token are set below: leave the caller's alone

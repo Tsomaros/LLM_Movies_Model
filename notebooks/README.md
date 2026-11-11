@@ -188,5 +188,7 @@ model_choice/                 <model>_director.csv, <model>_revenue.csv, summary
 By the arithmetic above, a batch-13 x 768 forward pass is likely minutes per pass on a 2-vCPU Colab runtime even for the 0.6B model
 (an estimate), and the 5.1B Gemma 4 E2B may not fit in 12 GB RAM (also unmeasured).
 
-Memory on the CPU runtime (about 12 GB) is a risk for notebook 12: a model is loaded in fp32 and then copied by the int8 quantizer. The 1.7B
-models need about 7 GB for the fp32 weights alone, and Gemma 4 E2B more than that, so it may run out of memory. That is a reason it is last.
+Memory on the CPU runtime (about 12 GB) is a risk for notebook 12: a model is loaded in fp32 (4 bytes per parameter) and quantized in place, so
+no second copy stays alive. Only the decoder is timed, as the predictor runs it: no vocabulary logits are computed (they alone would have
+been 13 x 768 x 151,936 x 4 bytes, about 6 GB for Qwen) and the lm_head is released after loading. The 1.7B models need about 7 GB for the
+fp32 weights, and Gemma 4 E2B (about 5.1B parameters with embeddings) may still not fit, which is a reason it is last.
