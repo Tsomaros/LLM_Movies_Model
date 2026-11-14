@@ -1,6 +1,23 @@
 # Progress
 
 ## Now
+- 2026-11-14: **Phase 2 Task 12, E1 runs done (owner, Colab T4). Under the rule, the larger model wins; owner to confirm.**
+  - Both runs stopped on patience: `e1_small` with its best at step 558 of about 1,240, and `e1_large` at step 372
+    (3 Colab sessions, resumed across days).
+  - Both have `full_validation` (5,144 films) and `val_films` 2000, so the end-of-run pass works on a GPU.
+  - On the full split, 0.6B against 1.7B:
+    - val pinball 0.1911 against 0.1836;
+    - revenue `mae_log` 1.567 against 1.579 (1.7B 0.012 worse);
+    - score `mae` 0.567 against 0.529 (1.7B 0.039 better);
+    - CPU time 100.5 s against 249.3 s.
+  - **E1 rule:** score improved by at least 0.02 and CPU time is at most 300 s, so keep `Qwen/Qwen3-1.7B-Base`.
+  - Caveats are in `reports/experiments.md`:
+    - revenue gets worse (within 2× 0.302 to 0.266, coverage 0.724 to 0.672);
+    - one seed only;
+    - about 3 times the Colab time;
+    - serving should take about 270 s.
+  - **Open:** E2-E5 run on the chosen size. The configs still extend `base.yaml` (0.6B), so switching them to 1.7B is
+    waiting on the owner's go-ahead.
 - 2026-11-11: **Validation question resolved (`val_sample`), and Phase 2 Task 12 Step 1 done (`compare_runs`).**
   - **`TrainConfig.val_sample`** (positive int or null, default null). `base.yaml` sets **2000**, so every experiment
     inherits it. `final.yaml` (Task 12 Step 4) will use null.
@@ -8,8 +25,8 @@
     - drawn after sorting by tmdb_id, so the same seed gives the same films whatever the row order, and E1-E5 (all
       seed 42) check on identical films;
     - stratified so the share of films with revenue is kept (rounded).
-    - The split has 95,216 films, so each check should be about 50 times cheaper than the 9-10 min seen in the smoke
-      run.
+    - **Corrected 2026-11-14:** training's validation frame has **5,144** films with a target. The 95,216 in the data
+      report counts every film in the split. A 2,000-film check is therefore about 2.5 times cheaper, not 50.
   - **`full_validation`:**
     - When training ends, `train()` loads the best weights into the model it holds and scores them once on the whole
       validation frame.
