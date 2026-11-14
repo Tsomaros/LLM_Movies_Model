@@ -1,4 +1,4 @@
 # E4: without the fields that may carry late knowledge (release type, distributor, themes).
-extends: base.yaml
+extends: e1_large.yaml  # E1 chose Qwen3-1.7B-Base (reports/experiments.md): E2-E5 differ from e1_large only in their own change
 run_name: e4_noleak
 drop_groups: [release_type, distributor, themes]

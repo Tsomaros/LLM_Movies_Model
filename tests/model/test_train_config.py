@@ -68,13 +68,14 @@ def test_val_sample_null_in_yaml_is_none(tmp_path):
 # ---- Task 11: the experiment configs in configs/train ----
 
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "configs" / "train"  # independent of the working directory
+LARGE = {"base_model": "Qwen/Qwen3-1.7B-Base"}  # E1 chose the larger model; E2-E5 run on it (reports/experiments.md)
 EXPERIMENTS = {
     "e1_small": {},
-    "e1_large": {"base_model": "Qwen/Qwen3-1.7B-Base"},
-    "e2_anon": {"anonymize": True},
-    "e3_notext": {"drop_groups": ("synopsis", "tagline")},
-    "e4_noleak": {"drop_groups": ("release_type", "distributor", "themes")},
-    "e5_nosource": {"drop_groups": ("source_strength",)},
+    "e1_large": LARGE,
+    "e2_anon": {**LARGE, "anonymize": True},
+    "e3_notext": {**LARGE, "drop_groups": ("synopsis", "tagline")},
+    "e4_noleak": {**LARGE, "drop_groups": ("release_type", "distributor", "themes")},
+    "e5_nosource": {**LARGE, "drop_groups": ("source_strength",)},
     "smoke": {"sample_frac": 0.01, "epochs": 1},  # Task 11 Step 4 smoke run: 1% of the films, 1 epoch
 }
 

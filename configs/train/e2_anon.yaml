@@ -1,4 +1,4 @@
 # E2: names in the prompt replaced by placeholders (Person N, Company N, Distributor, Franchise).
-extends: base.yaml
+extends: e1_large.yaml  # E1 chose Qwen3-1.7B-Base (reports/experiments.md): E2-E5 differ from e1_large only in their own change
 run_name: e2_anon
 anonymize: true

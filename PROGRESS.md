@@ -16,8 +16,13 @@
     - one seed only;
     - about 3 times the Colab time;
     - serving should take about 270 s.
-  - **Open:** E2-E5 run on the chosen size. The configs still extend `base.yaml` (0.6B), so switching them to 1.7B is
-    waiting on the owner's go-ahead.
+  - **The owner confirmed 1.7B.**
+    - `e2_anon`, `e3_notext`, `e4_noleak` and `e5_nosource` now use `extends: e1_large.yaml`, so each differs from
+      the reference run `e1_large` only in its own change. The tests pin this.
+    - `base.yaml` stays on 0.6B, because the finished `e1_small` run was trained from it and a rerun resumes by
+      `run_name`.
+    - No E2-E5 runs exist yet.
+  - Next: Task 12 Step 2, the owner runs E2-E5 on Colab, one per runtime.
 - 2026-11-11: **Validation question resolved (`val_sample`), and Phase 2 Task 12 Step 1 done (`compare_runs`).**
   - **`TrainConfig.val_sample`** (positive int or null, default null). `base.yaml` sets **2000**, so every experiment
     inherits it. `final.yaml` (Task 12 Step 4) will use null.
@@ -78,7 +83,8 @@
     - `base`: Qwen3-0.6B-Base, `sample_frac` 0.3.
     - `smoke`: base with `sample_frac` 0.01 and `epochs` 1, under its own run name.
     - `e1_small`, `e1_large` (1.7B-Base), `e2_anon`, `e3_notext`, `e4_noleak`, `e5_nosource`.
-    - All of them use `extends: base.yaml`. Tests pin each one as base plus only its own change.
+    - All of them use `extends: base.yaml`. Tests pin each one as base plus only its own change. (Since 2026-11-14,
+      E2-E5 extend `e1_large.yaml` instead, after E1 chose 1.7B.)
   - **Notebook** `notebooks/11_train.ipynb`, for Kaggle or Colab T4:
     - The install is `uv sync --frozen --extra train --extra cu132`, not the platform's torch as the plan said, matching
       the cpu/cu132 constraint.

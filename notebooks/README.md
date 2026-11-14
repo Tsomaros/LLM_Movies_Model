@@ -200,10 +200,11 @@ or by editing the `CONFIG` line on Kaggle (which has no forms), then run all cel
 - `base`: Qwen3-0.6B-Base on 30% of the training films;
 - `smoke`: the base config on 1% of the films for 1 epoch, under its own run name;
 - `e1_small` and `e1_large`: the same base config, with Qwen3-0.6B-Base and Qwen3-1.7B-Base;
-- `e2_anon`: names anonymized;
-- `e3_notext`: no synopsis or tagline;
-- `e4_noleak`: no release type, distributor or themes;
-- `e5_nosource`: no source strength.
+- `e2_anon` to `e5_nosource`: on Qwen3-1.7B-Base (the E1 choice), each extending `e1_large` with one change:
+  - `e2_anon`: names anonymized;
+  - `e3_notext`: no synopsis or tagline;
+  - `e4_noleak`: no release type, distributor or themes;
+  - `e5_nosource`: no source strength.
 
 Each config has its own `run_name`, so its checkpoints (in `Tsomaros/llm-movies-runs`) and its W&B run are separate.
 

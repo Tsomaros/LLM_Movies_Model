@@ -46,4 +46,5 @@ What the rule does not weigh:
 
 ## E2–E5
 
-Not run yet. They are to run on the size chosen in E1.
+Not run yet. The owner confirmed the E1 result on 2026-11-14, so they run on Qwen3-1.7B-Base: each config extends
+`e1_large.yaml` and changes only what its experiment tests. `e1_large` is their reference row.
